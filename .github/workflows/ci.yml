@@ -1,0 +1,32 @@
+name: CI
+
+# Fast, free regression check on every push/PR. Runs on a GitHub-hosted
+# Windows runner: it does NOT compile the custom CUDA backend and does NOT
+# run the GPU smoke (no NVIDIA GPU on hosted runners) — that lives in
+# release.yml on the self-hosted box. This just catches TS / logic / build
+# regressions cheaply.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
