@@ -1,0 +1,72 @@
+diff --git a/node_modules/node-llama-cpp/llama/CMakeLists.txt b/node_modules/node-llama-cpp/llama/CMakeLists.txt
+index efd8fce..dc619be 100644
+--- a/node_modules/node-llama-cpp/llama/CMakeLists.txt
++++ b/node_modules/node-llama-cpp/llama/CMakeLists.txt
+@@ -127,9 +127,12 @@ file(GLOB SOURCE_FILES "addon/*.cpp" "addon/**/*.cpp" ${GPU_INFO_SOURCES})
+ 
+ add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC} ${GPU_INFO_HEADERS})
+ set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
++# llama.cpp's common.h (b9616+) uses std::string_view; the addon TU must be C++17.
++target_compile_features(${PROJECT_NAME} PRIVATE cxx_std_17)
+ target_link_libraries(${PROJECT_NAME} ${CMAKE_JS_LIB})
+ target_link_libraries(${PROJECT_NAME} "llama")
+-target_link_libraries(${PROJECT_NAME} "common")
++# b9616 renamed the common static lib target from "common" to "llama-common".
++target_link_libraries(${PROJECT_NAME} "llama-common")
+ 
+ if (DEFINED GPU_INFO_EXTRA_LIBS)
+     target_link_libraries(${PROJECT_NAME} ${GPU_INFO_EXTRA_LIBS})
+diff --git a/node_modules/node-llama-cpp/llama/addon/AddonContext.cpp b/node_modules/node-llama-cpp/llama/addon/AddonContext.cpp
+index 017c696..4a7de9a 100644
+--- a/node_modules/node-llama-cpp/llama/addon/AddonContext.cpp
++++ b/node_modules/node-llama-cpp/llama/addon/AddonContext.cpp
+@@ -397,7 +397,7 @@ AddonContext::AddonContext(const Napi::CallbackInfo& info) : Napi::ObjectWrap<Ad
+ 
+     context_params = llama_context_default_params();
+     context_params.n_ctx = 4096;
+-    context_params.n_threads = std::max(cpu_get_num_math(), 1);
++    context_params.n_threads = std::max(common_cpu_get_num_math(), 1);
+     context_params.n_threads_batch = context_params.n_threads;
+     context_params.no_perf = true;
+     context_params.swa_full = false;
+@@ -745,7 +745,7 @@ Napi::Value AddonContext::SetThreads(const Napi::CallbackInfo& info) {
+ 
+     const auto threads = info[0].As<Napi::Number>().Int32Value();
+     const auto resolvedThreads = threads == 0
+-        ? std::max((int32_t)std::thread::hardware_concurrency(), std::max(cpu_get_num_math(), 1))
++        ? std::max((int32_t)std::thread::hardware_concurrency(), std::max(common_cpu_get_num_math(), 1))
+         : threads;
+ 
+     if (llama_n_threads(ctx) != resolvedThreads) {
+diff --git a/node_modules/node-llama-cpp/llama/addon/addon.cpp b/node_modules/node-llama-cpp/llama/addon/addon.cpp
+index eb1f35b..f8816eb 100644
+--- a/node_modules/node-llama-cpp/llama/addon/addon.cpp
++++ b/node_modules/node-llama-cpp/llama/addon/addon.cpp
+@@ -51,7 +51,7 @@ Napi::Value addonGetSupportsMlock(const Napi::CallbackInfo& info) {
+ }
+ 
+ Napi::Value addonGetMathCores(const Napi::CallbackInfo& info) {
+-    return Napi::Number::New(info.Env(), cpu_get_num_math());
++    return Napi::Number::New(info.Env(), common_cpu_get_num_math());
+ }
+ 
+ Napi::Value addonGetBlockSizeForGgmlType(const Napi::CallbackInfo& info) {
+diff --git a/node_modules/node-llama-cpp/llama/lastBuild.json b/node_modules/node-llama-cpp/llama/lastBuild.json
+new file mode 100644
+index 0000000..a0f54d9
+--- /dev/null
++++ b/node_modules/node-llama-cpp/llama/lastBuild.json
+@@ -0,0 +1,3 @@
++{
++    "folderName": "win-x64-cuda-release-b9616"
++}
+diff --git a/node_modules/node-llama-cpp/llama/llama.cpp.info.json b/node_modules/node-llama-cpp/llama/llama.cpp.info.json
+index ec56b87..74c528c 100644
+--- a/node_modules/node-llama-cpp/llama/llama.cpp.info.json
++++ b/node_modules/node-llama-cpp/llama/llama.cpp.info.json
+@@ -1,4 +1,4 @@
+ {
+-    "tag": "b8390",
++    "tag": "b9616",
+     "llamaCppGithubRepo": "ggml-org/llama.cpp"
+ }

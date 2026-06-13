@@ -1,0 +1,407 @@
+import { useSyncExternalStore } from 'react'
+import type {
+  AppSettings,
+  ChatMessage,
+  Conversation,
+  DownloadProgress,
+  EngineStatus,
+  HFModelDetail,
+  HFModelSummary,
+  InstalledModel
+} from '@shared/types'
+import type { AppInfo } from '@shared/ipc'
+
+export type View = 'chat' | 'discover' | 'models' | 'settings'
+export type SortKey = 'trending' | 'downloads' | 'likes'
+
+export interface DiscoverState {
+  query: string
+  sort: SortKey
+  results: HFModelSummary[]
+  loading: boolean
+  error: string | null
+  selected: HFModelDetail | null
+  detailLoading: boolean
+}
+
+export interface AppState {
+  ready: boolean
+  view: View
+  settings: AppSettings | null
+  appInfo: AppInfo | null
+  engine: EngineStatus
+  conversations: Conversation[]
+  activeConversationId: string | null
+  installedModels: InstalledModel[]
+  downloads: Record<string, DownloadProgress>
+  discover: DiscoverState
+  toast: { id: number; kind: 'info' | 'error' | 'success'; message: string } | null
+}
+
+const initialState: AppState = {
+  ready: false,
+  view: 'chat',
+  settings: null,
+  appInfo: null,
+  engine: {
+    state: 'idle',
+    modelId: null,
+    gpuType: null,
+    vramTotalBytes: null,
+    vramUsedBytes: null,
+    contextSize: null
+  },
+  conversations: [],
+  activeConversationId: null,
+  installedModels: [],
+  downloads: {},
+  discover: {
+    query: '',
+    sort: 'trending',
+    results: [],
+    loading: false,
+    error: null,
+    selected: null,
+    detailLoading: false
+  },
+  toast: null
+}
+
+let state: AppState = initialState
+let initialized = false
+const listeners = new Set<() => void>()
+
+function setState(patch: Partial<AppState> | ((s: AppState) => Partial<AppState>)): void {
+  const next = typeof patch === 'function' ? patch(state) : patch
+  state = { ...state, ...next }
+  listeners.forEach((l) => l())
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+export function useStore<T>(selector: (s: AppState) => T): T {
+  return useSyncExternalStore(
+    subscribe,
+    () => selector(state),
+    () => selector(initialState)
+  )
+}
+
+export function getState(): AppState {
+  return state
+}
+
+const uid = (): string =>
+  typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2) + Date.now().toString(36)
+
+const now = (): string => new Date().toISOString()
+
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+function toast(message: string, kind: 'info' | 'error' | 'success' = 'info'): void {
+  setState({ toast: { id: Date.now(), kind, message } })
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => setState({ toast: null }), 4000)
+}
+
+// ---------------------------------------------------------------------------
+// Conversation helpers
+// ---------------------------------------------------------------------------
+
+function activeConversation(): Conversation | null {
+  return state.conversations.find((c) => c.id === state.activeConversationId) ?? null
+}
+
+function updateConversation(id: string, fn: (c: Conversation) => Conversation): void {
+  setState((s) => ({
+    conversations: s.conversations.map((c) => (c.id === id ? fn(c) : c))
+  }))
+}
+
+function persist(conversation: Conversation): void {
+  void window.oracle.conversations.save(conversation)
+}
+
+// ---------------------------------------------------------------------------
+// Actions
+// ---------------------------------------------------------------------------
+
+export const actions = {
+  setView(view: View): void {
+    setState({ view })
+  },
+
+  async init(): Promise<void> {
+    // Guard against React StrictMode invoking the mount effect twice in dev,
+    // which would otherwise register duplicate IPC listeners (double tokens).
+    if (initialized) return
+    initialized = true
+
+    const [settingsRes, infoRes, modelsRes, convRes, statusRes, dlRes] = await Promise.all([
+      window.oracle.settings.get(),
+      window.oracle.app.info(),
+      window.oracle.models.list(),
+      window.oracle.conversations.list(),
+      window.oracle.engine.status(),
+      window.oracle.downloads.list()
+    ])
+
+    const downloads: Record<string, DownloadProgress> = {}
+    if (dlRes.ok && dlRes.data) for (const d of dlRes.data) downloads[d.id] = d
+
+    setState({
+      ready: true,
+      settings: settingsRes.data ?? null,
+      appInfo: infoRes.data ?? null,
+      installedModels: modelsRes.data ?? [],
+      conversations: convRes.data ?? [],
+      engine: statusRes.data ?? state.engine,
+      downloads,
+      activeConversationId: convRes.data?.[0]?.id ?? null
+    })
+
+    if (state.settings?.theme) document.documentElement.classList.toggle('light', state.settings.theme === 'light')
+
+    // Wire live event streams.
+    window.oracle.engine.onStatus((s) => setState({ engine: s }))
+    window.oracle.downloads.onProgress((p) => {
+      setState((st) => ({ downloads: { ...st.downloads, [p.id]: p } }))
+      if (p.status === 'completed') {
+        toast(`Downloaded ${p.filename}`, 'success')
+        void actions.refreshModels()
+      } else if (p.status === 'error') {
+        toast(`Download failed: ${p.error ?? p.filename}`, 'error')
+      }
+    })
+    window.oracle.chat.onEvent((e) => {
+      if (e.type === 'token') {
+        updateConversation(e.conversationId, (c) => ({
+          ...c,
+          messages: c.messages.map((m) =>
+            m.id === e.messageId ? { ...m, content: m.content + e.text } : m
+          )
+        }))
+      } else if (e.type === 'done') {
+        updateConversation(e.conversationId, (c) => {
+          const updated = {
+            ...c,
+            updatedAt: now(),
+            messages: c.messages.map((m) =>
+              m.id === e.messageId ? { ...m, stats: e.stats } : m
+            )
+          }
+          persist(updated)
+          return updated
+        })
+      } else if (e.type === 'error') {
+        updateConversation(e.conversationId, (c) => {
+          const updated = {
+            ...c,
+            messages: c.messages.map((m) =>
+              m.id === e.messageId
+                ? { ...m, content: m.content || `⚠️ ${e.error}` }
+                : m
+            )
+          }
+          persist(updated)
+          return updated
+        })
+        toast(e.error, 'error')
+      }
+    })
+  },
+
+  async refreshModels(): Promise<void> {
+    const res = await window.oracle.models.list()
+    if (res.ok) setState({ installedModels: res.data ?? [] })
+  },
+
+  // --- chat ---------------------------------------------------------------
+  newConversation(): string {
+    const conv: Conversation = {
+      id: uid(),
+      title: 'New chat',
+      modelId: state.engine.modelId,
+      messages: [],
+      createdAt: now(),
+      updatedAt: now()
+    }
+    setState((s) => ({
+      conversations: [conv, ...s.conversations],
+      activeConversationId: conv.id,
+      view: 'chat'
+    }))
+    persist(conv)
+    return conv.id
+  },
+
+  selectConversation(id: string): void {
+    setState({ activeConversationId: id, view: 'chat' })
+  },
+
+  async deleteConversation(id: string): Promise<void> {
+    await window.oracle.conversations.delete(id)
+    setState((s) => {
+      const conversations = s.conversations.filter((c) => c.id !== id)
+      return {
+        conversations,
+        activeConversationId:
+          s.activeConversationId === id ? (conversations[0]?.id ?? null) : s.activeConversationId
+      }
+    })
+  },
+
+  renameConversation(id: string, title: string): void {
+    updateConversation(id, (c) => {
+      const updated = { ...c, title: title.trim() || 'Untitled', updatedAt: now() }
+      persist(updated)
+      return updated
+    })
+  },
+
+  async sendMessage(text: string): Promise<void> {
+    const content = text.trim()
+    if (!content) return
+    if (!state.engine.modelId) {
+      toast('Load a model before chatting.', 'error')
+      return
+    }
+    let conv = activeConversation()
+    if (!conv) {
+      const id = actions.newConversation()
+      conv = state.conversations.find((c) => c.id === id) ?? null
+      if (!conv) return
+    }
+    const conversationId = conv.id
+
+    const userMsg: ChatMessage = { id: uid(), role: 'user', content, createdAt: now() }
+    const assistantMsg: ChatMessage = { id: uid(), role: 'assistant', content: '', createdAt: now() }
+
+    const isFirst = conv.messages.filter((m) => m.role === 'user').length === 0
+    const title = isFirst ? content.slice(0, 48) : conv.title
+
+    let saved: Conversation | null = null
+    updateConversation(conversationId, (c) => {
+      saved = {
+        ...c,
+        title,
+        modelId: state.engine.modelId,
+        messages: [...c.messages, userMsg, assistantMsg],
+        updatedAt: now()
+      }
+      return saved
+    })
+    // Persist the user turn before generation so the engine can rebuild history.
+    if (saved) await window.oracle.conversations.save(saved)
+
+    const res = await window.oracle.chat.send({
+      conversationId,
+      message: content,
+      assistantMessageId: assistantMsg.id
+    })
+    if (!res.ok) toast(res.error ?? 'Failed to send message', 'error')
+  },
+
+  abortGeneration(): void {
+    if (state.activeConversationId) void window.oracle.chat.abort(state.activeConversationId)
+  },
+
+  // --- models -------------------------------------------------------------
+  async loadModel(id: string): Promise<void> {
+    const res = await window.oracle.engine.load(id)
+    if (res.ok && res.data) {
+      setState({ engine: res.data })
+      const model = state.installedModels.find((m) => m.id === id)
+      toast(`Loaded ${model?.filename ?? id}`, 'success')
+    } else {
+      toast(res.error ?? 'Failed to load model', 'error')
+    }
+  },
+
+  async unloadModel(): Promise<void> {
+    await window.oracle.engine.unload()
+  },
+
+  async deleteModel(id: string): Promise<void> {
+    await window.oracle.models.delete(id)
+    await actions.refreshModels()
+    toast('Model deleted', 'info')
+  },
+
+  revealModel(id: string): void {
+    void window.oracle.models.reveal(id)
+  },
+
+  // --- downloads ----------------------------------------------------------
+  async startDownload(repoId: string, filename: string): Promise<void> {
+    const res = await window.oracle.downloads.start(repoId, filename)
+    if (res.ok) toast(`Started download: ${filename}`, 'info')
+    else toast(res.error ?? 'Download failed to start', 'error')
+  },
+
+  cancelDownload(id: string): void {
+    void window.oracle.downloads.cancel(id)
+  },
+
+  // --- discover -----------------------------------------------------------
+  setDiscoverQuery(query: string): void {
+    setState((s) => ({ discover: { ...s.discover, query } }))
+  },
+
+  setDiscoverSort(sort: SortKey): void {
+    setState((s) => ({ discover: { ...s.discover, sort } }))
+    void actions.search()
+  },
+
+  async search(): Promise<void> {
+    const { query, sort } = state.discover
+    setState((s) => ({ discover: { ...s.discover, loading: true, error: null } }))
+    const res = await window.oracle.hf.search(query, sort)
+    setState((s) => ({
+      discover: {
+        ...s.discover,
+        loading: false,
+        results: res.ok ? (res.data ?? []) : [],
+        error: res.ok ? null : (res.error ?? 'Search failed')
+      }
+    }))
+  },
+
+  async openModelDetail(repoId: string): Promise<void> {
+    setState((s) => ({ discover: { ...s.discover, detailLoading: true, selected: null } }))
+    const res = await window.oracle.hf.modelDetail(repoId)
+    setState((s) => ({
+      discover: {
+        ...s.discover,
+        detailLoading: false,
+        selected: res.ok ? (res.data ?? null) : null,
+        error: res.ok ? s.discover.error : (res.error ?? 'Failed to load model')
+      }
+    }))
+  },
+
+  closeModelDetail(): void {
+    setState((s) => ({ discover: { ...s.discover, selected: null } }))
+  },
+
+  // --- settings -----------------------------------------------------------
+  async updateSettings(patch: Partial<AppSettings>): Promise<void> {
+    const res = await window.oracle.settings.set(patch)
+    if (res.ok && res.data) {
+      setState({ settings: res.data })
+      if (patch.theme) document.documentElement.classList.toggle('light', patch.theme === 'light')
+    } else {
+      toast(res.error ?? 'Failed to save settings', 'error')
+    }
+  },
+
+  dismissToast(): void {
+    setState({ toast: null })
+  }
+}
+
+export { activeConversation }

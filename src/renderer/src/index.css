@@ -1,0 +1,186 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+body {
+  background-color: theme('colors.oracle.bg');
+  color: theme('colors.oracle.text');
+  font-family: theme('fontFamily.sans');
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Allow text selection in content areas. */
+.selectable,
+.selectable * {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* The draggable window title region. */
+.drag-region {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+/* ---- Scrollbars ---------------------------------------------------------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a2e44;
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3a3f5e;
+  background-clip: content-box;
+}
+
+/* ---- Reusable component classes ----------------------------------------- */
+@layer components {
+  .card {
+    @apply rounded-xl border border-oracle-border bg-oracle-surface;
+  }
+  .btn {
+    @apply no-drag inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-gradient-to-br from-oracle-accent to-oracle-accent-2 text-white shadow-lg shadow-oracle-accent/20 hover:brightness-110 active:brightness-95;
+  }
+  .btn-ghost {
+    @apply btn text-oracle-muted hover:bg-oracle-surface-2 hover:text-oracle-text;
+  }
+  .btn-surface {
+    @apply btn border border-oracle-border bg-oracle-surface-2 text-oracle-text hover:border-oracle-accent/50;
+  }
+  .input {
+    @apply no-drag w-full rounded-lg border border-oracle-border bg-oracle-bg px-3 py-2 text-sm text-oracle-text placeholder:text-oracle-muted/60 outline-none transition focus:border-oracle-accent/70 focus:ring-2 focus:ring-oracle-accent/20;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-md bg-oracle-surface-2 px-2 py-0.5 text-[11px] font-medium text-oracle-muted;
+  }
+}
+
+/* Thin shimmer used by skeleton loaders. */
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: #1b1d2b;
+}
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(139, 124, 255, 0.08), transparent);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Range sliders. */
+.oracle-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  border-radius: 9999px;
+  background: #262a3d;
+  outline: none;
+}
+.oracle-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: linear-gradient(135deg, #8b7cff, #5b8dff);
+  cursor: pointer;
+  box-shadow: 0 0 0 4px rgba(139, 124, 255, 0.15);
+  transition: box-shadow 0.15s;
+}
+.oracle-range::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 0 6px rgba(139, 124, 255, 0.22);
+}
+
+/* Blinking cursor for the streaming assistant message. */
+.caret::after {
+  content: '▋';
+  margin-left: 1px;
+  color: theme('colors.oracle.accent');
+  animation: pulse-glow 1s steps(2) infinite;
+}
+
+/* Markdown content styling (scoped to .prose-oracle). */
+.prose-oracle {
+  @apply text-[15px] leading-relaxed text-oracle-text;
+}
+.prose-oracle p {
+  margin: 0.5em 0;
+}
+.prose-oracle h1,
+.prose-oracle h2,
+.prose-oracle h3 {
+  @apply font-semibold text-oracle-text;
+  margin: 0.8em 0 0.4em;
+}
+.prose-oracle h1 {
+  @apply text-xl;
+}
+.prose-oracle h2 {
+  @apply text-lg;
+}
+.prose-oracle h3 {
+  @apply text-base;
+}
+.prose-oracle ul,
+.prose-oracle ol {
+  margin: 0.5em 0;
+  padding-left: 1.4em;
+}
+.prose-oracle ul {
+  list-style: disc;
+}
+.prose-oracle ol {
+  list-style: decimal;
+}
+.prose-oracle li {
+  margin: 0.2em 0;
+}
+.prose-oracle a {
+  @apply text-oracle-accent-2 underline underline-offset-2;
+}
+.prose-oracle code.inline {
+  @apply rounded bg-oracle-bg px-1.5 py-0.5 font-mono text-[13px] text-oracle-glow;
+}
+.prose-oracle blockquote {
+  @apply border-l-2 border-oracle-accent/50 pl-3 text-oracle-muted;
+  margin: 0.5em 0;
+}

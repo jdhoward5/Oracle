@@ -1,0 +1,50 @@
+{
+  "name": "oracle",
+  "version": "0.1.0",
+  "description": "Oracle — a beautiful, secure desktop app for downloading and chatting with Hugging Face models locally.",
+  "author": "Oracle",
+  "license": "MIT",
+  "main": "./out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "smoke": "node scripts/smoke-inference.mjs",
+    "make-icon": "pwsh -File scripts/make-icon.ps1",
+    "build": "electron-vite build",
+    "preview": "electron-vite preview",
+    "start": "electron-vite preview",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts,.tsx",
+    "package": "electron-vite build && electron-builder --win --dir",
+    "dist": "electron-vite build && electron-builder --win",
+    "postinstall": "patch-package",
+    "rebuild:llama": "patch-package && node-llama-cpp source download --release b9616 --gpu cuda"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9",
+    "node-llama-cpp": "^3.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "@types/react": "^18.3.18",
+    "@types/react-dom": "^18.3.5",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^42.4.0",
+    "electron-builder": "^26.15.3",
+    "electron-vite": "^3.1.0",
+    "eslint": "^8.57.1",
+    "patch-package": "^8.0.1",
+    "postcss": "^8.4.49",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.4.3",
+    "vitest": "^4.1.8"
+  }
+}

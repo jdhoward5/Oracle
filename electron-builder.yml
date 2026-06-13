@@ -1,0 +1,52 @@
+appId: com.oracle.app
+productName: Oracle
+directories:
+  buildResources: build
+  output: release/${version}
+# node-llama-cpp ships prebuilt N-API binaries; no native rebuild is needed.
+npmRebuild: false
+files:
+  - out/**/*
+  - package.json
+  # Trim dead weight from the packaged native deps. We ship a custom from-source
+  # llama.cpp build (b9616 CUDA) under llama/localBuilds — it adds gemma4 support
+  # the prebuilt b8390 lacks — plus the prebuilt CPU + Vulkan backends as a
+  # fallback. We drop the rest:
+  #  - win-x64-cuda-ext (~440 MB) only adds coverage for very old NVIDIA archs
+  #  - arm64 prebuilts are useless on an x64 build
+  - "!**/node_modules/@node-llama-cpp/win-x64-cuda-ext/**"
+  - "!**/node_modules/@node-llama-cpp/win-arm64/**"
+  # Keep only the custom build's runtime output: Release/ holds the .node + the
+  # DLLs colocated beside it (this is the dir node-llama-cpp loads), and
+  # buildDone.status + lastBuild.json are needed for it to resolve the build.
+  # Drop the entire from-source build tree (~400 MB of intermediates: the
+  # llama.cpp checkout, CMake scratch, MSBuild .dir/obj, vcxproj, the duplicate
+  # bin/ copy of the DLLs, and cmake compiler-id probe executables).
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/llama.cpp/**"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/CMakeFiles/**"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/*.dir/**"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/x64/**"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/bin/**"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/*.vcxproj*"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/*.lib"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/*.exp"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/CMakeCache.txt"
+  - "!**/node_modules/node-llama-cpp/llama/localBuilds/*/cmake_install.cmake"
+# node-llama-cpp ships native .node bindings and prebuilt llama.cpp binaries
+# that must be kept outside the asar archive so they can be dlopen-ed at runtime.
+asarUnpack:
+  - node_modules/node-llama-cpp/**/*
+  - node_modules/@node-llama-cpp/**/*
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+  artifactName: ${productName}-${version}-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  deleteAppDataOnUninstall: false
+publish: null
