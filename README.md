@@ -24,21 +24,21 @@ no telemetry, no data leaving your computer.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────── Electron main (Node) ───┐
-│  index.ts        hardened window, CSP, nav guards, lifecycle        │
-│  ipc.ts          typed IPC router  ─────────────────┐               │
-│  engine.ts       node-llama-cpp: load, GPU, stream  │ events        │
-│  downloads.ts    resumable HF GGUF downloader        │ broadcast     │
-│  hf.ts           Hugging Face search + model detail  │               │
-│  store.ts        encrypted settings, model registry, conversations  │
-│  llama.ts        lazy CUDA backend (uses local source build)        │
-└───────────────────────────┬─────────────────────────┘               │
-                            │ contextBridge (preload/index.ts)         │
-┌───────────────────────────▼──────────── Renderer (React, isolated) ─┐
-│  store.ts        external store (useSyncExternalStore)              │
-│  components/     Chat · Discover · Models · Settings                │
-│  lib/markdown    safe (no innerHTML) markdown → React elements      │
-└────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────── Electron main (Node) ───┐
+│  index.ts       hardened window, CSP, nav guards, lifecycle                │
+│  ipc.ts         typed IPC router                             ┐             │
+│  engine.ts      node-llama-cpp: load, GPU, stream            │             │
+│  downloads.ts   resumable HF GGUF downloader                 ├─ events     │
+│  hf.ts          Hugging Face search + model detail           ├─ broadcast  │
+│  store.ts       encrypted settings, models, conversations    │             │
+│  llama.ts       lazy CUDA backend (local source build)       ┘             │
+└──────────────────────────────────────┬─────────────────────────────────────┘
+                                       │ contextBridge (preload/index.ts)
+┌──────────────────────────────────────▼────── Renderer (React, isolated) ───┐
+│  store.ts       external store (useSyncExternalStore)                      │
+│  components/    Chat · Discover · Models · Settings                        │
+│  lib/markdown   safe (no innerHTML) markdown → React elements              │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
 
 Shared types and the IPC contract live in `src/shared`, imported by both sides so
