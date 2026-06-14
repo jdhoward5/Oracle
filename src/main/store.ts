@@ -37,11 +37,21 @@ async function ensureDir(dir: string): Promise<void> {
   await fs.mkdir(dir, { recursive: true })
 }
 
+// Monotonic per-process counter so two rapid writes to the same file never share
+// a temp path (which would let one write's rename clobber the other's in-flight file).
+let tmpWriteSeq = 0
+
 async function atomicWrite(filePath: string, data: string): Promise<void> {
   await ensureDir(path.dirname(filePath))
-  const tmp = `${filePath}.${process.pid}.tmp`
-  await fs.writeFile(tmp, data, 'utf8')
-  await fs.rename(tmp, filePath)
+  const tmp = `${filePath}.${process.pid}.${tmpWriteSeq++}.tmp`
+  try {
+    await fs.writeFile(tmp, data, 'utf8')
+    await fs.rename(tmp, filePath)
+  } catch (err) {
+    // Best-effort cleanup of the temp file so a failed write doesn't orphan it.
+    await fs.rm(tmp, { force: true }).catch(() => {})
+    throw err
+  }
 }
 
 async function readJSON<T>(filePath: string, fallback: T): Promise<T> {
@@ -229,13 +239,61 @@ function convFile(id: string): string {
   return path.join(conversationsDir(), `${safe}.json`)
 }
 
+/** Structural check that a parsed object is a usable Conversation the engine can run. */
+function isValidConversation(v: unknown): v is Conversation {
+  if (!v || typeof v !== 'object') return false
+  const c = v as Record<string, unknown>
+  if (typeof c.id !== 'string' || typeof c.title !== 'string') return false
+  if (!Array.isArray(c.messages)) return false
+  return c.messages.every((m) => {
+    if (!m || typeof m !== 'object') return false
+    const mm = m as Record<string, unknown>
+    return (
+      typeof mm.id === 'string' &&
+      (mm.role === 'user' || mm.role === 'assistant' || mm.role === 'system') &&
+      typeof mm.content === 'string'
+    )
+  })
+}
+
+/** Move a corrupt conversation file aside so it stops breaking loads but isn't lost. */
+async function quarantineFile(filePath: string): Promise<void> {
+  await fs.rename(filePath, `${filePath}.corrupt`).catch(() => {})
+}
+
+/**
+ * Read + validate one conversation file. Returns null (and quarantines the file)
+ * when it can't be parsed or fails schema validation, so a single corrupt file
+ * can't crash the app or take down the whole list.
+ */
+async function loadConversation(filePath: string): Promise<Conversation | null> {
+  let raw: string
+  try {
+    raw = await fs.readFile(filePath, 'utf8')
+  } catch {
+    return null // missing / unreadable — not corrupt, just absent
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    await quarantineFile(filePath)
+    return null
+  }
+  if (!isValidConversation(parsed)) {
+    await quarantineFile(filePath)
+    return null
+  }
+  return parsed
+}
+
 export async function listConversations(): Promise<Conversation[]> {
   await ensureDir(conversationsDir())
   const files = await fs.readdir(conversationsDir())
   const out: Conversation[] = []
   for (const f of files) {
     if (!f.endsWith('.json')) continue
-    const conv = await readJSON<Conversation | null>(path.join(conversationsDir(), f), null)
+    const conv = await loadConversation(path.join(conversationsDir(), f))
     if (conv) out.push(conv)
   }
   // Most recently updated first.
@@ -244,7 +302,7 @@ export async function listConversations(): Promise<Conversation[]> {
 }
 
 export async function getConversation(id: string): Promise<Conversation | null> {
-  return readJSON<Conversation | null>(convFile(id), null)
+  return loadConversation(convFile(id))
 }
 
 export async function saveConversation(conversation: Conversation): Promise<void> {

@@ -265,13 +265,20 @@ app.on('before-quit', (event) => {
   if (cleanedUp) return
   event.preventDefault()
   cleanedUp = true
+  // Prefer a clean unload (disposing the CUDA backend mid-flight crashes Windows),
+  // but never hang the quit on it: a watchdog force-exits if teardown stalls. The
+  // ceiling is generous because engine.unload() may first await an in-flight
+  // generation to stop.
+  const watchdog = setTimeout(() => app.exit(0), 10_000)
   void (async () => {
     try {
       await engine.unload()
       await disposeLlama()
     } catch {
       /* ignore */
+    } finally {
+      clearTimeout(watchdog)
+      app.exit(0)
     }
-    app.exit(0)
   })()
 })

@@ -3,8 +3,8 @@ import { createReadStream, existsSync, promises as fs } from 'node:fs'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 import type { DownloadProgress, InstalledModel } from '@shared/types'
-import { modelIdFor, parseParamLabel, parseQuant } from '@shared/format'
-import { getFileChecksums } from './hf'
+import { formatBytes, modelIdFor, parseParamLabel, parseQuant } from '@shared/format'
+import { getRepoGgufFiles, type RepoFileInfo } from './hf'
 import { nlc } from './llama'
 import { getModelsDir, getSettings, upsertInstalledModel } from './store'
 
@@ -119,10 +119,16 @@ class DownloadManager extends EventEmitter {
     hfToken: string | null
   ): Promise<void> {
     const { createModelDownloader } = await nlc()
-    // Fetch HF's published checksums concurrently with the (much longer) download
-    // so verification doesn't add a serial network round-trip. Never rejects.
-    const checksumsPromise = entry.verifyChecksum ? getFileChecksums(repoId) : null
+    // Repo file info (sizes + LFS checksums) for this download, fetched once and
+    // concurrently. Drives the disk-space pre-flight and checksum verification.
+    // Never rejects — an empty map just disables both checks.
+    const fileInfoPromise = getRepoGgufFiles(repoId)
     try {
+      const fileInfo = await fileInfoPromise
+      // Pre-flight: refuse before writing anything if the volume lacks room, so the
+      // user gets a clear message instead of an ENOSPC failure partway through.
+      await this.ensureDiskSpace(modelsDir, fileInfo, filename)
+
       entry.progress.status = 'downloading'
       this.emitProgress(entry)
 
@@ -148,14 +154,24 @@ class DownloadManager extends EventEmitter {
       // truncated/corrupt file is deleted and surfaced as an error rather than
       // being registered as a usable model (it would only fail later at load
       // time with a cryptic "unknown model architecture"-style message).
-      const expectedChecksums = checksumsPromise ? await checksumsPromise : new Map<string, string>()
+      const expectedChecksums = new Map<string, string>()
+      for (const [name, info] of fileInfo) {
+        if (info.sha256) expectedChecksums.set(name, info.sha256)
+      }
       const { verified, verifiedBy, actualBytes } = await this.verifyIntegrity(
         entry,
         finalPath,
         entry.progress.totalBytes,
         expectedChecksums
       )
-      await this.register(repoId, filename, finalPath, actualBytes, verified, verifiedBy)
+      try {
+        await this.register(repoId, filename, finalPath, actualBytes, verified, verifiedBy)
+      } catch (err) {
+        // Registry write failed (disk full / perms): don't leave a downloaded but
+        // unregistered file the UI can never see. Remove it so a retry starts clean.
+        await this.deleteModelFiles(finalPath)
+        throw err
+      }
 
       entry.progress.status = 'completed'
       entry.progress.receivedBytes = entry.progress.totalBytes || entry.progress.receivedBytes
@@ -298,6 +314,51 @@ class DownloadManager extends EventEmitter {
 
     entry.progress.verifyFraction = 1
     this.emitProgress(entry)
+  }
+
+  /**
+   * Throw (before any bytes are written) when the models volume clearly can't
+   * hold the download. No-op when the expected size or free space is unknown, so
+   * a flaky metadata fetch or an unsupported filesystem never blocks a download.
+   */
+  private async ensureDiskSpace(
+    modelsDir: string,
+    fileInfo: Map<string, RepoFileInfo>,
+    filename: string
+  ): Promise<void> {
+    const expected = this.expectedBytesFor(fileInfo, filename)
+    if (expected <= 0) return
+
+    let free: number
+    try {
+      const s = await fs.statfs(modelsDir)
+      free = s.bavail * s.bsize
+    } catch {
+      return // can't determine free space — don't block
+    }
+
+    const HEADROOM = 100 * 1024 * 1024 // leave room for fs overhead + temp files
+    if (free < expected + HEADROOM) {
+      throw new Error(
+        `Not enough disk space to download ${filename}: needs about ${formatBytes(expected)} ` +
+          `but only ${formatBytes(free)} is free in the models folder.`
+      )
+    }
+  }
+
+  /** Expected total download size: the file, or the sum of all shards if multi-part. */
+  private expectedBytesFor(fileInfo: Map<string, RepoFileInfo>, filename: string): number {
+    const base = filename.split('/').pop() ?? filename
+    const m = base.match(/^(.*)-\d{5}-of-(\d{5})\.gguf$/i)
+    if (m) {
+      const re = new RegExp(`^${escapeRegExp(m[1])}-\\d{5}-of-${m[2]}\\.gguf$`, 'i')
+      let total = 0
+      for (const [name, info] of fileInfo) {
+        if (re.test(name)) total += info.size
+      }
+      return total
+    }
+    return fileInfo.get(base)?.size ?? 0
   }
 
   /**

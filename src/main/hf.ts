@@ -12,23 +12,54 @@ async function hfHeaders(): Promise<Record<string, string>> {
   return headers
 }
 
+const HF_MAX_ATTEMPTS = 3
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Backoff before the next attempt; honors a numeric `Retry-After` when present. */
+function backoffMs(attempt: number, retryAfter: string | null): number {
+  if (retryAfter) {
+    const secs = Number(retryAfter)
+    if (Number.isFinite(secs) && secs >= 0) return Math.min(secs * 1000, 15_000)
+  }
+  return 500 * 2 ** (attempt - 1) + Math.random() * 250 // 0.5s, 1s, 2s (+ jitter)
+}
+
+/**
+ * Fetch JSON from the HF API with a per-attempt 20s timeout and bounded retry.
+ * Retries transient failures (network errors, timeouts, 429, 5xx) with
+ * exponential backoff + jitter; fails fast on other 4xx (e.g. 401/404).
+ */
 async function hfFetch(url: string): Promise<unknown> {
-  const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), 20_000)
-  try {
-    const res = await fetch(url, { headers: await hfHeaders(), signal: controller.signal })
-    if (!res.ok) {
+  for (let attempt = 1; ; attempt++) {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20_000)
+    let res: Response
+    try {
+      res = await fetch(url, { headers: await hfHeaders(), signal: controller.signal })
+    } catch (err) {
+      clearTimeout(timeout)
+      if (attempt >= HF_MAX_ATTEMPTS) throw err // network error / timeout
+      await delay(backoffMs(attempt, null))
+      continue
+    }
+    clearTimeout(timeout)
+    if (res.ok) return res.json()
+    const retriable = res.status === 429 || res.status >= 500
+    if (!retriable || attempt >= HF_MAX_ATTEMPTS) {
       throw new Error(`Hugging Face API ${res.status} ${res.statusText}`)
     }
-    return await res.json()
-  } finally {
-    clearTimeout(timeout)
+    await delay(backoffMs(attempt, res.headers.get('retry-after')))
   }
 }
 
 interface RawModel {
   id?: string
   modelId?: string
+  /** Commit sha of the repo's default branch (usable as a tree revision). */
+  sha?: string
   author?: string
   downloads?: number
   likes?: number
@@ -93,16 +124,43 @@ interface TreeEntry {
   lfs?: { size?: number; oid?: string }
 }
 
+/** Resolve a repo's default-branch revision (commit sha), falling back to 'main'. */
+async function resolveRevision(repoId: string): Promise<string> {
+  try {
+    const info = (await hfFetch(`${HF_API}/models/${repoId}`)) as RawModel
+    return info?.sha || 'main'
+  } catch {
+    return 'main'
+  }
+}
+
+/**
+ * The repo file tree. Tries `main` (the near-universal default) first, then falls
+ * back to the resolved default-branch revision for the rare repo whose default
+ * branch is named differently. Always returns an array (empty on failure).
+ */
+async function fetchTree(repoId: string): Promise<TreeEntry[]> {
+  try {
+    const entries = (await hfFetch(`${HF_API}/models/${repoId}/tree/main?recursive=true`)) as TreeEntry[]
+    if (Array.isArray(entries)) return entries
+  } catch {
+    /* fall through to revision resolution */
+  }
+  const rev = await resolveRevision(repoId)
+  if (rev === 'main') return [] // already tried main
+  try {
+    const entries = (await hfFetch(
+      `${HF_API}/models/${repoId}/tree/${rev}?recursive=true`
+    )) as TreeEntry[]
+    return Array.isArray(entries) ? entries : []
+  } catch {
+    return []
+  }
+}
+
 /** Fetch the GGUF files for a repo with their sizes via the tree API. */
 async function fetchGGUFFiles(repoId: string): Promise<HFGGUFFile[]> {
-  const url = `${HF_API}/models/${repoId}/tree/main?recursive=true`
-  let entries: TreeEntry[]
-  try {
-    entries = (await hfFetch(url)) as TreeEntry[]
-  } catch {
-    entries = []
-  }
-  if (!Array.isArray(entries)) return []
+  const entries = await fetchTree(repoId)
   return entries
     .filter((e) => e.type === 'file' && e.path.toLowerCase().endsWith('.gguf'))
     .map<HFGGUFFile>((e) => ({
@@ -114,27 +172,26 @@ async function fetchGGUFFiles(repoId: string): Promise<HFGGUFFile[]> {
     .sort((a, b) => (a.size ?? 0) - (b.size ?? 0))
 }
 
+export interface RepoFileInfo {
+  /** Size in bytes (LFS size when tracked, else the blob size); 0 if unknown. */
+  size: number
+  /** Lowercase SHA-256 for LFS-tracked files (GGUFs); absent for non-LFS files. */
+  sha256?: string
+}
+
 /**
- * Map of GGUF **basename → lowercase SHA-256** for a repo, from HF's published
- * LFS checksums. Used to verify downloads. Returns an empty map on any failure
- * (network/parse/missing) so callers degrade gracefully to size-only checks
- * rather than blocking a finished download on a flaky metadata call.
+ * Map of GGUF **basename → {size, sha256}** for a repo, from HF's tree API. Used
+ * to pre-flight disk space and to verify finished downloads. Returns an empty map
+ * on any failure (network/parse/missing) so callers degrade gracefully — never
+ * blocking a download on a flaky metadata call.
  */
-export async function getFileChecksums(repoId: string): Promise<Map<string, string>> {
-  const map = new Map<string, string>()
-  const url = `${HF_API}/models/${repoId}/tree/main?recursive=true`
-  let entries: TreeEntry[]
-  try {
-    entries = (await hfFetch(url)) as TreeEntry[]
-  } catch {
-    return map
-  }
-  if (!Array.isArray(entries)) return map
+export async function getRepoGgufFiles(repoId: string): Promise<Map<string, RepoFileInfo>> {
+  const map = new Map<string, RepoFileInfo>()
+  const entries = await fetchTree(repoId)
   for (const e of entries) {
-    const oid = e.lfs?.oid
-    if (e.type !== 'file' || !oid || !e.path.toLowerCase().endsWith('.gguf')) continue
+    if (e.type !== 'file' || !e.path.toLowerCase().endsWith('.gguf')) continue
     const base = e.path.split('/').pop()
-    if (base) map.set(base, oid.toLowerCase())
+    if (base) map.set(base, { size: e.lfs?.size ?? e.size ?? 0, sha256: e.lfs?.oid?.toLowerCase() })
   }
   return map
 }

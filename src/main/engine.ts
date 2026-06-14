@@ -275,6 +275,25 @@ class InferenceEngine extends EventEmitter {
     return this.session
   }
 
+  /**
+   * Reload a conversation's full live history into the shared session — used after
+   * a cancelled/failed compaction clobbered it — so the next turn continues
+   * without a surprise rebuild. Falls back to invalidating the session if the
+   * history can't be restored.
+   */
+  private async restoreSession(conversation: Conversation): Promise<void> {
+    if (!this.session) return
+    try {
+      const settings = await getSettings()
+      const systemPrompt = this.systemPromptFor(conversation, settings)
+      const prior = this.liveMessages(conversation).filter((m) => m.role !== 'system')
+      this.session.setChatHistory(this.toHistory(prior, systemPrompt))
+      this.sessionConversationId = conversation.id
+    } catch {
+      this.sessionConversationId = null // couldn't restore — force a clean rebuild next turn
+    }
+  }
+
   async generate(
     conversation: Conversation,
     userText: string,
@@ -517,8 +536,11 @@ class InferenceEngine extends EventEmitter {
         'the user.\n\nConversation excerpt to fold in:\n' +
         transcript
 
-      // Run the summarization on the shared session, then invalidate it so the
-      // next generate rebuilds from the freshly compacted history.
+      // Summarization runs on the shared session, which clobbers its chat history.
+      // On success we invalidate the session (the caller persists the compaction and
+      // the next generate rebuilds from it). On cancel/failure we restore the
+      // conversation so the clobbered history doesn't bleed into the next turn — and
+      // a half-generated summary is discarded rather than persisted.
       this.abort = new AbortController()
       await this.setState('generating')
       let summary = ''
@@ -526,21 +548,25 @@ class InferenceEngine extends EventEmitter {
         this.session.setChatHistory([
           { type: 'system', text: 'You are a precise conversation summarizer.' }
         ])
-        summary = (
-          await this.session.prompt(instruction, {
-            signal: this.abort.signal,
-            stopOnAbortSignal: true,
-            temperature: 0.3,
-            maxTokens: 600
-          })
-        ).trim()
+        const out = await this.session.prompt(instruction, {
+          signal: this.abort.signal,
+          stopOnAbortSignal: true,
+          temperature: 0.3,
+          maxTokens: 600
+        })
+        if (this.abort.signal.aborted) throw new Error('Compaction cancelled.')
+        summary = out.trim()
+        if (!summary) throw new Error('Summarization produced no output.')
+      } catch (err) {
+        await this.restoreSession(conversation)
+        throw err
       } finally {
         this.abort = null
-        this.sessionConversationId = null
         await this.setState('ready')
       }
 
-      if (!summary) throw new Error('Summarization produced no output.')
+      // Success: invalidate so the next generate rebuilds from the compacted history.
+      this.sessionConversationId = null
 
       return {
         summary,
