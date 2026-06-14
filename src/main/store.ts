@@ -3,7 +3,7 @@ import { promises as fs } from 'node:fs'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
 import type { AppSettings, Conversation, InstalledModel } from '@shared/types'
-import { DEFAULT_GENERATION_OPTIONS } from '@shared/types'
+import { DEFAULT_CONTEXT_SETTINGS, DEFAULT_GENERATION_OPTIONS } from '@shared/types'
 
 /**
  * Persistent JSON store rooted in Electron's userData directory.
@@ -73,6 +73,7 @@ function defaultSettings(): AppSettings {
       systemPrompt:
         'You are Oracle, a helpful, knowledgeable and concise AI assistant running locally on the user’s machine.'
     },
+    context: { ...DEFAULT_CONTEXT_SETTINGS },
     theme: 'dark',
     gpu: 'auto',
     telemetry: false
@@ -118,6 +119,7 @@ export async function getSettings(): Promise<AppSettings> {
     ...persisted,
     generation: { ...base.generation, ...persisted.generation },
     load: { ...base.load, ...persisted.load },
+    context: { ...base.context, ...persisted.context },
     hfToken: decryptToken(persisted.hfTokenEnc),
     telemetry: false
   }
@@ -131,6 +133,7 @@ export async function setSettings(patch: Partial<AppSettings>): Promise<AppSetti
     ...patch,
     generation: { ...current.generation, ...(patch.generation ?? {}) },
     load: { ...current.load, ...(patch.load ?? {}) },
+    context: { ...current.context, ...(patch.context ?? {}) },
     telemetry: false
   }
   cachedSettings = next
@@ -139,6 +142,7 @@ export async function setSettings(patch: Partial<AppSettings>): Promise<AppSetti
     modelsDir: next.modelsDir,
     generation: next.generation,
     load: next.load,
+    context: next.context,
     theme: next.theme,
     gpu: next.gpu,
     telemetry: false,

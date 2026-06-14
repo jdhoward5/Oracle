@@ -3,6 +3,7 @@ import type {
   AppSettings,
   ChatMessage,
   Conversation,
+  ContextUsage,
   DownloadProgress,
   EngineStatus,
   HFModelDetail,
@@ -35,6 +36,10 @@ export interface AppState {
   installedModels: InstalledModel[]
   downloads: Record<string, DownloadProgress>
   discover: DiscoverState
+  /** Live context-window fill for the active conversation, when a model is loaded. */
+  contextUsage: ContextUsage | null
+  /** True while a compaction pass is running. */
+  compacting: boolean
   toast: { id: number; kind: 'info' | 'error' | 'success'; message: string } | null
 }
 
@@ -64,6 +69,8 @@ const initialState: AppState = {
     selected: null,
     detailLoading: false
   },
+  contextUsage: null,
+  compacting: false,
   toast: null
 }
 
@@ -166,8 +173,17 @@ export const actions = {
 
     if (state.settings?.theme) document.documentElement.classList.toggle('light', state.settings.theme === 'light')
 
+    // Pull an initial context snapshot for the opening conversation.
+    void actions.refreshContextUsage()
+
     // Wire live event streams.
     window.oracle.engine.onStatus((s) => setState({ engine: s }))
+    window.oracle.context.onUsage((u) => {
+      // Only adopt snapshots for the conversation currently on screen; the engine
+      // also broadcasts a null-conversation snapshot on load that must not clobber
+      // an active conversation's real fill.
+      if (u.conversationId === state.activeConversationId) setState({ contextUsage: u })
+    })
     window.oracle.downloads.onProgress((p) => {
       setState((st) => ({ downloads: { ...st.downloads, [p.id]: p } }))
       if (p.status === 'completed') {
@@ -220,6 +236,43 @@ export const actions = {
     if (res.ok) setState({ installedModels: res.data ?? [] })
   },
 
+  // --- context window -----------------------------------------------------
+  async refreshContextUsage(): Promise<void> {
+    if (!state.engine.modelId) {
+      setState({ contextUsage: null })
+      return
+    }
+    const res = await window.oracle.context.usage(state.activeConversationId)
+    if (res.ok && res.data) setState({ contextUsage: res.data })
+  },
+
+  /**
+   * Summarize older turns of a conversation to reclaim context. Returns true on
+   * success. `silent` suppresses the success toast (used by auto-compaction).
+   */
+  async compact(conversationId?: string, opts?: { silent?: boolean }): Promise<boolean> {
+    const id = conversationId ?? state.activeConversationId
+    if (!id) return false
+    if (state.compacting) return false
+    setState({ compacting: true })
+    const res = await window.oracle.chat.compact(id)
+    setState({ compacting: false })
+    if (!res.ok || !res.data) {
+      // Auto-compaction is best-effort (e.g. nothing foldable yet) — stay quiet.
+      if (!opts?.silent) toast(res.error ?? 'Compaction failed', 'error')
+      return false
+    }
+    const info = res.data
+    updateConversation(id, (c) => {
+      const updated = { ...c, compaction: info, updatedAt: now() }
+      persist(updated)
+      return updated
+    })
+    await actions.refreshContextUsage()
+    if (!opts?.silent) toast(`Summarized ${info.foldedCount} earlier messages`, 'success')
+    return true
+  },
+
   // --- chat ---------------------------------------------------------------
   newConversation(): string {
     const conv: Conversation = {
@@ -236,11 +289,13 @@ export const actions = {
       view: 'chat'
     }))
     persist(conv)
+    void actions.refreshContextUsage()
     return conv.id
   },
 
   selectConversation(id: string): void {
     setState({ activeConversationId: id, view: 'chat' })
+    void actions.refreshContextUsage()
   },
 
   async deleteConversation(id: string): Promise<void> {
@@ -277,6 +332,23 @@ export const actions = {
       if (!conv) return
     }
     const conversationId = conv.id
+
+    // Auto-compaction: if the window is about to overflow, summarize older turns
+    // before adding this turn so the new message is never folded away.
+    const ctx = state.contextUsage
+    const cset = state.settings?.context
+    if (
+      cset?.autoCompact &&
+      ctx &&
+      ctx.contextSize > 0 &&
+      (ctx.willOverflow || ctx.fraction >= cset.compactThreshold)
+    ) {
+      const did = await actions.compact(conversationId, { silent: true })
+      if (did) {
+        toast('Context was full — older messages were summarized', 'info')
+        conv = state.conversations.find((c) => c.id === conversationId) ?? conv
+      }
+    }
 
     const userMsg: ChatMessage = { id: uid(), role: 'user', content, createdAt: now() }
     const assistantMsg: ChatMessage = { id: uid(), role: 'assistant', content: '', createdAt: now() }
@@ -317,6 +389,7 @@ export const actions = {
       setState({ engine: res.data })
       const model = state.installedModels.find((m) => m.id === id)
       toast(`Loaded ${model?.filename ?? id}`, 'success')
+      void actions.refreshContextUsage()
     } else {
       toast(res.error ?? 'Failed to load model', 'error')
     }
@@ -324,6 +397,7 @@ export const actions = {
 
   async unloadModel(): Promise<void> {
     await window.oracle.engine.unload()
+    setState({ contextUsage: null })
   },
 
   async deleteModel(id: string): Promise<void> {

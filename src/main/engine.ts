@@ -1,16 +1,24 @@
 import { EventEmitter } from 'node:events'
 import type * as NLC from 'node-llama-cpp'
 import type {
+  AppSettings,
   ChatMessage,
+  CompactionInfo,
   Conversation,
+  ContextUsage,
   EngineStatus,
   GenerationEvent,
   GenerationOptions,
   InstalledModel
 } from '@shared/types'
 import { DEFAULT_GENERATION_OPTIONS } from '@shared/types'
+import { contextLevel } from '@shared/context'
 import { getLlamaInstance } from './llama'
 import { getInstalledModel, getSettings, upsertInstalledModel } from './store'
+
+/** Prefix the folded-history summary is injected under, inside the system turn. */
+const SUMMARY_PREFIX =
+  'Summary of earlier conversation (older turns were condensed to save context):\n'
 
 /**
  * Owns the single loaded model + active chat session. One model is resident at
@@ -116,6 +124,7 @@ class InferenceEngine extends EventEmitter {
       await this.persistMetadata(installed)
 
       await this.setState('ready')
+      void this.emitUsage(null)
       return this.status()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -174,12 +183,34 @@ class InferenceEngine extends EventEmitter {
     return history
   }
 
+  /**
+   * The system prompt actually fed to the model: the conversation's (or default)
+   * system text, plus the compaction summary when older turns have been folded.
+   */
+  private systemPromptFor(conversation: Conversation, settings: AppSettings): string {
+    const systemMessage = conversation.messages.find((m) => m.role === 'system')
+    let prompt = systemMessage?.content?.trim() || settings.load.systemPrompt
+    const summary = conversation.compaction?.summary?.trim()
+    if (summary) prompt += `\n\n${SUMMARY_PREFIX}${summary}`
+    return prompt
+  }
+
+  /**
+   * Messages that are sent verbatim — everything after the last folded turn.
+   * Folded turns live in the compaction summary instead.
+   */
+  private liveMessages(conversation: Conversation): ChatMessage[] {
+    const through = conversation.compaction?.throughMessageId
+    if (!through) return conversation.messages
+    const idx = conversation.messages.findIndex((m) => m.id === through)
+    if (idx < 0) return conversation.messages // summary points at a pruned message
+    return conversation.messages.slice(idx + 1)
+  }
+
   private async ensureSession(conversation: Conversation, currentUserText: string): Promise<NLC.LlamaChatSession> {
     if (!this.session) throw new Error('No model loaded')
     const settings = await getSettings()
-
-    const systemMessage = conversation.messages.find((m) => m.role === 'system')
-    const systemPrompt = systemMessage?.content?.trim() || settings.load.systemPrompt
+    const systemPrompt = this.systemPromptFor(conversation, settings)
 
     // Reuse the live session (and its warm KV cache) when continuing the same
     // conversation; otherwise swap the session's history to this conversation.
@@ -187,9 +218,9 @@ class InferenceEngine extends EventEmitter {
       return this.session
     }
 
-    // Build prior history, excluding the just-sent user turn and any empty
-    // assistant placeholder the renderer pre-allocated.
-    const prior = [...conversation.messages]
+    // Build prior history from the live (un-folded) tail, excluding the just-sent
+    // user turn and any empty assistant placeholder the renderer pre-allocated.
+    const prior = this.liveMessages(conversation).filter((m) => m.role !== 'system')
     while (prior.length) {
       const last = prior[prior.length - 1]
       if (last.role === 'assistant' && !last.content.trim()) {
@@ -202,11 +233,7 @@ class InferenceEngine extends EventEmitter {
       }
       break
     }
-    const history = this.toHistory(
-      prior.filter((m) => m.role !== 'system'),
-      systemPrompt
-    )
-    this.session.setChatHistory(history)
+    this.session.setChatHistory(this.toHistory(prior, systemPrompt))
     this.sessionConversationId = conversation.id
     return this.session
   }
@@ -281,7 +308,8 @@ class InferenceEngine extends EventEmitter {
           promptTokens,
           completionTokens,
           durationMs,
-          tokensPerSecond: durationMs > 0 ? (completionTokens / durationMs) * 1000 : 0
+          tokensPerSecond: durationMs > 0 ? (completionTokens / durationMs) * 1000 : 0,
+          contextTokens: this.sequence?.nextTokenIndex
         }
       })
     } catch (err) {
@@ -296,7 +324,8 @@ class InferenceEngine extends EventEmitter {
             promptTokens: this.estimatePromptTokens(conversation, userText),
             completionTokens,
             durationMs,
-            tokensPerSecond: durationMs > 0 ? (completionTokens / durationMs) * 1000 : 0
+            tokensPerSecond: durationMs > 0 ? (completionTokens / durationMs) * 1000 : 0,
+            contextTokens: this.sequence?.nextTokenIndex
           }
         })
       } else {
@@ -310,6 +339,8 @@ class InferenceEngine extends EventEmitter {
     } finally {
       this.abort = null
       await this.setState('ready')
+      // Report the now-exact KV-cache fill so the renderer's meter is accurate.
+      void this.emitUsage(conversation)
     }
   }
 
@@ -325,6 +356,147 @@ class InferenceEngine extends EventEmitter {
 
   abortGeneration(): void {
     this.abort?.abort()
+  }
+
+  // -- context window -------------------------------------------------------
+
+  private tokenCount(text: string): number {
+    if (!this.model || !text) return 0
+    try {
+      return this.model.tokenize(text).length
+    } catch {
+      return Math.ceil(text.length / 4) // ~4 chars/token fallback
+    }
+  }
+
+  /**
+   * Estimate the tokens a conversation would occupy if (re)loaded into the
+   * window: the effective system prompt (incl. summary) plus the live tail,
+   * with a small per-turn allowance for chat-template framing.
+   */
+  private estimateConversationTokens(conversation: Conversation, settings: AppSettings): number {
+    let total = this.tokenCount(this.systemPromptFor(conversation, settings)) + 8
+    for (const m of this.liveMessages(conversation)) {
+      if (m.role === 'system' || !m.content.trim()) continue
+      total += this.tokenCount(m.content) + 4
+    }
+    return total
+  }
+
+  /**
+   * Snapshot how full the window is for a conversation. Reads the exact KV-cache
+   * fill when that conversation is the one resident in the session; otherwise
+   * estimates by tokenizing. Safe to call with null (returns an empty snapshot).
+   */
+  async computeUsage(conversation: Conversation | null): Promise<ContextUsage> {
+    const settings = await getSettings()
+    const contextSize = this.contextSize ?? 0
+    const reserve = settings.generation.maxTokens
+    const { warnThreshold, compactThreshold } = settings.context
+
+    let usedTokens = 0
+    let exact = false
+    if (conversation && this.model) {
+      if (this.sequence && this.sessionConversationId === conversation.id) {
+        usedTokens = this.sequence.nextTokenIndex
+        exact = true
+      } else {
+        usedTokens = this.estimateConversationTokens(conversation, settings)
+      }
+    }
+
+    const fraction = contextSize > 0 ? Math.min(1, usedTokens / contextSize) : 0
+    return {
+      conversationId: conversation?.id ?? null,
+      usedTokens,
+      contextSize,
+      responseReserveTokens: reserve,
+      fraction,
+      level: contextLevel(fraction, warnThreshold, compactThreshold),
+      willOverflow: contextSize > 0 && usedTokens + reserve > contextSize,
+      exact
+    }
+  }
+
+  private async emitUsage(conversation: Conversation | null): Promise<void> {
+    try {
+      this.emit('context', await this.computeUsage(conversation))
+    } catch {
+      /* non-fatal */
+    }
+  }
+
+  /**
+   * Summarize the older portion of a conversation into a single cumulative
+   * summary, leaving the most recent `keepRecentMessages` turns verbatim.
+   * Returns the new compaction record for the caller to persist onto the
+   * conversation — the engine does not own conversation state.
+   */
+  async compact(conversation: Conversation): Promise<CompactionInfo> {
+    if (!this.session || !this.model) throw new Error('No model is loaded.')
+    if (this.state === 'generating') throw new Error('Cannot compact while generating.')
+
+    const settings = await getSettings()
+    const keep = Math.max(0, settings.context.keepRecentMessages)
+
+    const live = this.liveMessages(conversation).filter(
+      (m) => m.role !== 'system' && m.content.trim()
+    )
+    const foldCount = live.length - keep
+    if (foldCount <= 0) {
+      throw new Error('Not enough conversation history to compact yet.')
+    }
+    const toFold = live.slice(0, foldCount)
+    const throughMessageId = toFold[toFold.length - 1].id
+
+    const priorSummary = conversation.compaction?.summary?.trim()
+    const transcript = toFold
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content.trim()}`)
+      .join('\n\n')
+    const instruction =
+      (priorSummary
+        ? `Existing summary of the conversation so far:\n${priorSummary}\n\n`
+        : '') +
+      'Update (or create) a concise summary of the conversation that preserves all ' +
+      'facts, decisions, names, code, numbers and unresolved questions needed to ' +
+      'continue. Write terse third-person notes. Do not add commentary or address ' +
+      'the user.\n\nConversation excerpt to fold in:\n' +
+      transcript
+
+    // Run the summarization on the shared session, then invalidate it so the
+    // next generate rebuilds from the freshly compacted history.
+    this.abort = new AbortController()
+    await this.setState('generating')
+    let summary = ''
+    try {
+      this.session.setChatHistory([
+        { type: 'system', text: 'You are a precise conversation summarizer.' }
+      ])
+      summary = (
+        await this.session.prompt(instruction, {
+          signal: this.abort.signal,
+          stopOnAbortSignal: true,
+          temperature: 0.3,
+          maxTokens: 600
+        })
+      ).trim()
+    } finally {
+      this.abort = null
+      this.sessionConversationId = null
+      await this.setState('ready')
+    }
+
+    if (!summary) throw new Error('Summarization produced no output.')
+
+    return {
+      summary,
+      throughMessageId,
+      foldedCount: (conversation.compaction?.foldedCount ?? 0) + toFold.length,
+      originalTokens:
+        this.tokenCount(transcript) + (priorSummary ? this.tokenCount(priorSummary) : 0),
+      summaryTokens: this.tokenCount(summary),
+      compactedAt: new Date().toISOString()
+    }
   }
 
   private emitEvent(event: GenerationEvent): void {

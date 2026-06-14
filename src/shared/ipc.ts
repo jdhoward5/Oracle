@@ -4,7 +4,9 @@
 
 import type {
   AppSettings,
+  CompactionInfo,
   Conversation,
+  ContextUsage,
   DownloadProgress,
   EngineStatus,
   GenerationEvent,
@@ -41,6 +43,11 @@ export const IPC = {
   chatSend: 'chat:send',
   chatAbort: 'chat:abort',
   chatEvent: 'chat:event', // main → renderer streaming event
+  chatCompact: 'chat:compact', // summarize older turns to reclaim context
+
+  // Context window
+  contextUsage: 'context:usage', // on-demand snapshot for a conversation
+  contextEvent: 'context:event', // main → renderer usage updates
 
   // Conversations persistence
   convList: 'conv:list',
@@ -103,7 +110,14 @@ export interface OracleBridge {
   chat: {
     send(req: ChatSendRequest): Promise<Result<void>>
     abort(conversationId: string): Promise<Result<void>>
+    /** Summarize older turns of a conversation into a compaction record. */
+    compact(conversationId: string): Promise<Result<CompactionInfo>>
     onEvent(cb: (e: GenerationEvent) => void): () => void
+  }
+  context: {
+    /** Estimate (or read, if active) the context fill for a conversation. */
+    usage(conversationId: string | null): Promise<Result<ContextUsage>>
+    onUsage(cb: (u: ContextUsage) => void): () => void
   }
   conversations: {
     list(): Promise<Result<Conversation[]>>

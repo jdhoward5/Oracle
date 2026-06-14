@@ -83,6 +83,28 @@ export interface GenerationStats {
   completionTokens: number
   tokensPerSecond: number
   durationMs: number
+  /** KV-cache fill (tokens resident in the context window) right after this turn. */
+  contextTokens?: number
+}
+
+/**
+ * Record of a compaction pass: older turns folded into a model-written summary
+ * to reclaim context. The summary is cumulative — each pass re-summarizes the
+ * previous summary plus the newly folded turns.
+ */
+export interface CompactionInfo {
+  /** Summary that stands in for every folded message. */
+  summary: string
+  /** All messages up to and including this id are folded into `summary`. */
+  throughMessageId: string
+  /** Total number of messages folded so far (cumulative across passes). */
+  foldedCount: number
+  /** Approx tokens the folded content occupied before compaction. */
+  originalTokens: number
+  /** Approx tokens the summary occupies. */
+  summaryTokens: number
+  /** When compaction last ran (ISO). */
+  compactedAt: string
 }
 
 export interface Conversation {
@@ -92,6 +114,8 @@ export interface Conversation {
   messages: ChatMessage[]
   createdAt: string
   updatedAt: string
+  /** Present once older turns have been summarized to save context. */
+  compaction?: CompactionInfo
 }
 
 export interface GenerationOptions {
@@ -123,6 +147,25 @@ export interface LoadOptions {
   systemPrompt: string
 }
 
+/** Tunables for how the context window is managed during a chat. */
+export interface ContextSettings {
+  /** Summarize older turns automatically when the window fills past the threshold. */
+  autoCompact: boolean
+  /** Fraction (0..1) of the window at which auto-compaction runs before a send. */
+  compactThreshold: number
+  /** Fraction (0..1) at which the UI surfaces a warning. */
+  warnThreshold: number
+  /** Number of most-recent messages always kept verbatim (never folded). */
+  keepRecentMessages: number
+}
+
+export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
+  autoCompact: true,
+  compactThreshold: 0.85,
+  warnThreshold: 0.7,
+  keepRecentMessages: 6
+}
+
 export interface AppSettings {
   /** Directory where GGUF models are stored. */
   modelsDir: string
@@ -130,6 +173,7 @@ export interface AppSettings {
   hfToken: string | null
   generation: GenerationOptions
   load: Omit<LoadOptions, 'systemPrompt'> & { systemPrompt: string }
+  context: ContextSettings
   theme: 'dark' | 'light'
   /** Preferred GPU backend; 'auto' lets the engine decide. */
   gpu: 'auto' | 'cuda' | 'vulkan' | 'cpu'
@@ -144,6 +188,29 @@ export interface EngineStatus {
   vramUsedBytes: number | null
   contextSize: number | null
   error?: string
+}
+
+/** Severity of context-window pressure. */
+export type ContextLevel = 'ok' | 'warn' | 'critical'
+
+/** Live snapshot of how full the active context window is. */
+export interface ContextUsage {
+  /** Conversation this pertains to, or null when nothing is loaded. */
+  conversationId: string | null
+  /** Tokens occupying the window (system + summary + live history). */
+  usedTokens: number
+  /** Total size of the loaded context window in tokens (0 when no model). */
+  contextSize: number
+  /** Tokens budgeted for the next response (generation.maxTokens). */
+  responseReserveTokens: number
+  /** usedTokens / contextSize, clamped to 0..1. */
+  fraction: number
+  /** Severity given the configured thresholds. */
+  level: ContextLevel
+  /** True when usedTokens + responseReserveTokens exceeds contextSize. */
+  willOverflow: boolean
+  /** True when measured from the live KV cache; false when estimated by tokenizing. */
+  exact: boolean
 }
 
 /** Streaming events emitted from main → renderer during generation. */

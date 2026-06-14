@@ -4,6 +4,7 @@ import type { IpcMainInvokeEvent } from 'electron'
 import { IPC, type AppInfo, type ChatSendRequest } from '@shared/ipc'
 import type {
   AppSettings,
+  ContextUsage,
   Conversation,
   EngineStatus,
   GenerationEvent,
@@ -102,6 +103,17 @@ export function registerIpc(): void {
   handle(IPC.chatAbort, async () => {
     engine.abortGeneration()
   })
+  handle(IPC.chatCompact, async (_e, conversationId: string) => {
+    const conversation = await getConversation(String(conversationId))
+    if (!conversation) throw new Error(`Conversation not found: ${conversationId}`)
+    return engine.compact(conversation)
+  })
+
+  // --- Context window -----------------------------------------------------
+  handle(IPC.contextUsage, async (_e, conversationId: string | null) => {
+    const conversation = conversationId ? await getConversation(String(conversationId)) : null
+    return engine.computeUsage(conversation)
+  })
 
   // --- Conversations ------------------------------------------------------
   handle(IPC.convList, async () => listConversations())
@@ -137,4 +149,5 @@ export function registerIpc(): void {
   downloadManager.on('progress', (p) => broadcast(IPC.downloadProgress, p))
   engine.on('event', (e: GenerationEvent) => broadcast(IPC.chatEvent, e))
   engine.on('status', (s: EngineStatus) => broadcast(IPC.engineStatusEvent, s))
+  engine.on('context', (u: ContextUsage) => broadcast(IPC.contextEvent, u))
 }

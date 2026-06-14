@@ -48,6 +48,41 @@ function Slider({
   )
 }
 
+function Toggle({
+  label,
+  desc,
+  checked,
+  onChange
+}: {
+  label: string
+  desc?: string
+  checked: boolean
+  onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="min-w-0">
+        <label className="text-[13px] text-oracle-text">{label}</label>
+        {desc && <p className="mt-0.5 text-[12px] text-oracle-muted">{desc}</p>}
+      </div>
+      <button
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+          checked ? 'bg-oracle-accent' : 'bg-oracle-surface-2'
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${
+            checked ? 'left-[18px]' : 'left-0.5'
+          }`}
+        />
+      </button>
+    </div>
+  )
+}
+
 export function SettingsView() {
   const settings = useStore((s) => s.settings)
   const appInfo = useStore((s) => s.appInfo)
@@ -60,6 +95,7 @@ export function SettingsView() {
   const update = (patch: Partial<AppSettings>): void => void actions.updateSettings(patch)
   const gen = settings.generation
   const load = settings.load
+  const ctx = settings.context
 
   const gpuOptions: { value: AppSettings['gpu']; label: string }[] = [
     { value: 'auto', label: 'Auto' },
@@ -125,6 +161,45 @@ export function SettingsView() {
                 className="input resize-none"
               />
             </div>
+          </Section>
+
+          <Section
+            title="Context management"
+            desc="How Oracle keeps long chats inside the model's context window."
+          >
+            <Toggle
+              label="Auto-compact"
+              desc="Summarize older turns automatically when the window is about to overflow."
+              checked={ctx.autoCompact}
+              onChange={(v) => update({ context: { ...ctx, autoCompact: v } })}
+            />
+            <Slider
+              label="Auto-compact threshold"
+              value={ctx.compactThreshold}
+              min={0.5}
+              max={0.98}
+              step={0.01}
+              onChange={(v) => update({ context: { ...ctx, compactThreshold: v } })}
+              format={(v) => `${Math.round(v * 100)}% full`}
+            />
+            <Slider
+              label="Warning threshold"
+              value={ctx.warnThreshold}
+              min={0.4}
+              max={0.95}
+              step={0.01}
+              onChange={(v) => update({ context: { ...ctx, warnThreshold: v } })}
+              format={(v) => `${Math.round(v * 100)}% full`}
+            />
+            <Slider
+              label="Keep recent messages"
+              value={ctx.keepRecentMessages}
+              min={2}
+              max={20}
+              step={1}
+              onChange={(v) => update({ context: { ...ctx, keepRecentMessages: v } })}
+              format={(v) => `${v} messages`}
+            />
           </Section>
 
           <Section title="Generation" desc="Sampling parameters for responses.">

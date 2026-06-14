@@ -40,7 +40,12 @@ const bridge: OracleBridge = {
   chat: {
     send: (req: ChatSendRequest) => ipcRenderer.invoke(IPC.chatSend, req),
     abort: (conversationId) => ipcRenderer.invoke(IPC.chatAbort, conversationId),
+    compact: (conversationId) => ipcRenderer.invoke(IPC.chatCompact, conversationId),
     onEvent: (cb) => subscribe(IPC.chatEvent, cb)
+  },
+  context: {
+    usage: (conversationId) => ipcRenderer.invoke(IPC.contextUsage, conversationId),
+    onUsage: (cb) => subscribe(IPC.contextEvent, cb)
   },
   conversations: {
     list: () => ipcRenderer.invoke(IPC.convList),

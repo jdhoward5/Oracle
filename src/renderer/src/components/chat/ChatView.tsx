@@ -1,10 +1,13 @@
 import { useEffect, useRef } from 'react'
+import type { Conversation } from '@shared/types'
 import { actions, useStore } from '../../store'
+import { formatTokens } from '@shared/context'
 import { ConversationList } from './ConversationList'
 import { Message } from './Message'
 import { Composer } from './Composer'
+import { ContextMeter } from './ContextMeter'
 import { ModelPicker } from '../common/ModelPicker'
-import { SparkIcon, CompassIcon } from '../../lib/icons'
+import { SparkIcon, CompassIcon, CompressIcon, AlertTriangleIcon } from '../../lib/icons'
 
 function EmptyState() {
   const hasModel = useStore((s) => Boolean(s.engine.modelId))
@@ -31,6 +34,55 @@ function EmptyState() {
   )
 }
 
+/** Banner shown when the next reply may not fit the remaining context window. */
+function OverflowBanner() {
+  const usage = useStore((s) => s.contextUsage)
+  const compacting = useStore((s) => s.compacting)
+  const generating = useStore((s) => s.engine.state === 'generating')
+  const autoCompact = useStore((s) => s.settings?.context.autoCompact ?? false)
+  if (!usage || !usage.willOverflow) return null
+  return (
+    <div className="mx-auto mt-3 flex max-w-3xl items-center gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3.5 py-2 text-[12.5px] text-amber-200">
+      <AlertTriangleIcon size={16} className="shrink-0 text-amber-400" />
+      <span className="flex-1">
+        The context window is nearly full. The next reply may be truncated.{' '}
+        {autoCompact
+          ? 'Older messages will be summarized automatically on your next send.'
+          : 'Compact the conversation to free up space.'}
+      </span>
+      <button
+        onClick={() => void actions.compact()}
+        disabled={compacting || generating}
+        className="btn-surface shrink-0 px-2.5 py-1 text-[12px] disabled:opacity-40"
+      >
+        <CompressIcon size={13} /> {compacting ? 'Compacting…' : 'Compact now'}
+      </button>
+    </div>
+  )
+}
+
+/** Divider marking where older turns have been folded into a summary. */
+function CompactionDivider({ conversation }: { conversation: Conversation }) {
+  const c = conversation.compaction
+  if (!c) return null
+  return (
+    <div
+      className="my-1 flex items-center gap-2 text-[11.5px] text-oracle-muted/80"
+      title={c.summary}
+    >
+      <div className="h-px flex-1 bg-oracle-border/60" />
+      <CompressIcon size={12} />
+      <span>
+        {c.foldedCount} earlier {c.foldedCount === 1 ? 'message' : 'messages'} summarized
+        {c.originalTokens > 0 && (
+          <> · {formatTokens(c.originalTokens)} → {formatTokens(c.summaryTokens)} tokens</>
+        )}
+      </span>
+      <div className="h-px flex-1 bg-oracle-border/60" />
+    </div>
+  )
+}
+
 export function ChatView() {
   const conversation = useStore((s) =>
     s.conversations.find((c) => c.id === s.activeConversationId)
@@ -49,29 +101,44 @@ export function ChatView() {
   }, [messages.length, lastLen])
 
   const visible = messages.filter((m) => m.role !== 'system')
+  // Index (within `visible`) of the last message folded into the summary, if any.
+  const through = conversation?.compaction?.throughMessageId
+  const foldedThroughIdx = through ? visible.findIndex((m) => m.id === through) : -1
 
   return (
     <div className="flex min-h-0 flex-1">
       <ConversationList />
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-14 shrink-0 items-center justify-between border-b border-oracle-border/60 px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-oracle-border/60 px-4">
           <ModelPicker />
-          {conversation && (
-            <span className="truncate text-[13px] font-medium text-oracle-muted">{conversation.title}</span>
-          )}
+          <div className="flex min-w-0 items-center gap-4">
+            <ContextMeter />
+            {conversation && (
+              <span className="hidden truncate text-[13px] font-medium text-oracle-muted sm:inline">
+                {conversation.title}
+              </span>
+            )}
+          </div>
         </div>
 
         {!conversation || visible.length === 0 ? (
           <EmptyState />
         ) : (
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
+            <OverflowBanner />
             <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
               {visible.map((m, i) => (
-                <Message
-                  key={m.id}
-                  message={m}
-                  streaming={generating && i === visible.length - 1 && m.role === 'assistant'}
-                />
+                <div key={m.id} className="contents">
+                  <div className={foldedThroughIdx >= 0 && i <= foldedThroughIdx ? 'opacity-45' : ''}>
+                    <Message
+                      message={m}
+                      streaming={generating && i === visible.length - 1 && m.role === 'assistant'}
+                    />
+                  </div>
+                  {i === foldedThroughIdx && conversation && (
+                    <CompactionDivider conversation={conversation} />
+                  )}
+                </div>
               ))}
             </div>
           </div>
