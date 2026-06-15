@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { contextLevel, contextPercent, formatTokens, levelColor } from './context'
+import { contextLevel, contextPercent, estimateTokens, formatTokens, levelColor } from './context'
 
 describe('contextLevel', () => {
   it('classifies against thresholds', () => {
@@ -34,6 +34,17 @@ describe('contextPercent', () => {
     expect(contextPercent(0.754)).toBe(75)
     expect(contextPercent(1.5)).toBe(100)
     expect(contextPercent(NaN)).toBe(0)
+  })
+})
+
+describe('estimateTokens', () => {
+  it('is zero for empty input', () => {
+    expect(estimateTokens('')).toBe(0)
+  })
+  it('approximates ~4 chars per token (rounding up)', () => {
+    expect(estimateTokens('abcd')).toBe(1)
+    expect(estimateTokens('abcde')).toBe(2)
+    expect(estimateTokens('a'.repeat(400))).toBe(100)
   })
 })
 

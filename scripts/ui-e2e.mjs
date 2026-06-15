@@ -112,6 +112,14 @@ async function run() {
     await shot('03-find.png')
     await page.keyboard.press('Escape')
 
+    // --- Composer live token estimate ---------------------------------------
+    const composer = page.locator('textarea')
+    await composer.fill('hello world, this is a quick token-count check!')
+    await page.waitForTimeout(100)
+    assert((await page.getByText(/~\d+ tokens/).count()) >= 1, 'composer shows a live token estimate')
+    await composer.fill('')
+    await page.waitForTimeout(50)
+
     // --- Conversation settings drawer: export + overrides --------------------
     await page.getByTitle('Conversation settings').click()
     await page.getByText('Conversation settings').waitFor({ timeout: 5000 })
@@ -152,6 +160,14 @@ async function run() {
     const beta = await page.evaluate(() => window.oracle.conversations.get('e2e-beta'))
     assert(beta?.data?.messages?.length === 1, 'deleting a message persisted (2 → 1)')
 
+    // --- Branch (fork Beta's remaining message into a new conversation) ------
+    await page.getByText('Branch', { exact: true }).first().click()
+    await page.waitForTimeout(250)
+    const list = await page.evaluate(() => window.oracle.conversations.list())
+    const branchConv = (list?.data ?? []).find((c) => c.title.endsWith('(branch)'))
+    assert(!!branchConv, 'branch created a new "(branch)" conversation')
+    assert(branchConv.messages.length === 1, 'branch cloned messages up to the chosen point')
+
     // --- Settings: add a generation profile ---------------------------------
     await page.getByText('Settings', { exact: true }).click()
     const profileInput = page.getByPlaceholder('Name a new profile')
@@ -163,6 +179,15 @@ async function run() {
     assert(
       (settings?.data?.generationProfiles ?? []).some((p) => p.name === 'E2E Profile'),
       'new generation profile persisted'
+    )
+
+    // --- Settings: stop sequences -------------------------------------------
+    await page.getByPlaceholder('One per line').fill('<<<END>>>')
+    await page.waitForTimeout(200)
+    const settings2 = await page.evaluate(() => window.oracle.settings.get())
+    assert(
+      (settings2?.data?.generation?.stopSequences ?? []).includes('<<<END>>>'),
+      'stop sequence persisted'
     )
     await shot('05-settings.png')
 

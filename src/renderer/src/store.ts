@@ -42,6 +42,8 @@ export interface AppState {
   contextUsage: ContextUsage | null
   /** True while a compaction pass is running. */
   compacting: boolean
+  /** Live counters for the in-flight assistant turn (drives the streaming tok/s). */
+  streamStats: { messageId: string; startedAt: number; tokens: number } | null
   toast: { id: number; kind: 'info' | 'error' | 'success'; message: string } | null
 }
 
@@ -73,6 +75,7 @@ const initialState: AppState = {
   },
   contextUsage: null,
   compacting: false,
+  streamStats: null,
   toast: null
 }
 
@@ -240,12 +243,27 @@ export const actions = {
     })
     window.oracle.chat.onEvent((e) => {
       if (e.type === 'token') {
-        updateConversation(e.conversationId, (c) => ({
-          ...c,
-          messages: c.messages.map((m) =>
-            m.id === e.messageId ? { ...m, content: m.content + e.text } : m
-          )
-        }))
+        // Append the chunk and advance the live tok/s counter in one update.
+        setState((s) => {
+          const prev = s.streamStats
+          const streamStats =
+            prev && prev.messageId === e.messageId
+              ? { ...prev, tokens: prev.tokens + 1 }
+              : { messageId: e.messageId, startedAt: Date.now(), tokens: 1 }
+          return {
+            streamStats,
+            conversations: s.conversations.map((c) =>
+              c.id === e.conversationId
+                ? {
+                    ...c,
+                    messages: c.messages.map((m) =>
+                      m.id === e.messageId ? { ...m, content: m.content + e.text } : m
+                    )
+                  }
+                : c
+            )
+          }
+        })
       } else if (e.type === 'done') {
         updateConversation(e.conversationId, (c) => {
           const updated = {
@@ -258,6 +276,7 @@ export const actions = {
           persist(updated)
           return updated
         })
+        setState({ streamStats: null })
       } else if (e.type === 'error') {
         updateConversation(e.conversationId, (c) => {
           const updated = {
@@ -269,6 +288,7 @@ export const actions = {
           persist(updated)
           return updated
         })
+        setState({ streamStats: null })
         toast(e.error, 'error')
       }
     })
@@ -490,6 +510,37 @@ export const actions = {
     const editedUser: ChatMessage = { ...conv.messages[idx], content, createdAt: now() }
     const assistantMsg: ChatMessage = { id: uid(), role: 'assistant', content: '', createdAt: now() }
     await runTurn(conv, [...conv.messages.slice(0, idx), editedUser, assistantMsg], content, assistantMsg.id)
+  },
+
+  /**
+   * Fork the active conversation at a message into a NEW conversation containing
+   * everything up to and including that message (carrying overrides). Switches to
+   * the branch; the original is left untouched.
+   */
+  branchConversation(messageId: string): string | null {
+    const conv = activeConversation()
+    if (!conv) return null
+    const idx = conv.messages.findIndex((m) => m.id === messageId)
+    if (idx < 0) return null
+    const messages = conv.messages.slice(0, idx + 1).map((m) => ({ ...m }))
+    const branch: Conversation = {
+      id: uid(),
+      title: `${conv.title} (branch)`,
+      modelId: conv.modelId,
+      messages,
+      createdAt: now(),
+      updatedAt: now(),
+      overrides: conv.overrides,
+      compaction: survivingCompaction(conv, messages)
+    }
+    setState((s) => ({
+      conversations: [branch, ...s.conversations],
+      activeConversationId: branch.id,
+      view: 'chat'
+    }))
+    persist(branch)
+    void actions.refreshContextUsage()
+    return branch.id
   },
 
   /**

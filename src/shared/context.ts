@@ -14,6 +14,16 @@ export function contextLevel(fraction: number, warn: number, critical: number): 
   return 'ok'
 }
 
+/**
+ * Cheap, dependency-free token estimate for live UI (e.g. the composer counter).
+ * Approximates ~4 chars/token — the same fallback the engine uses when the real
+ * tokenizer is unavailable. Not exact; prefix displays with "~".
+ */
+export function estimateTokens(text: string): number {
+  if (!text) return 0
+  return Math.ceil(text.length / 4)
+}
+
 /** Compact a token count to a short label, e.g. 950 → "950", 8400 → "8.4K". */
 export function formatTokens(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return '0'

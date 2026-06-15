@@ -110,7 +110,7 @@ export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
                   value=""
                   onChange={(e) => {
                     const p = settings.generationProfiles.find((x) => x.id === e.target.value)
-                    if (p) setGen({ ...p.options })
+                    if (p) setGen((g) => ({ ...p.options, stopSequences: g.stopSequences }))
                   }}
                   className="input h-8 w-full px-2 text-[12px]"
                 >

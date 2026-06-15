@@ -350,6 +350,7 @@ class InferenceEngine extends EventEmitter {
         maxTokens: opts.maxTokens,
         seed: opts.seed,
         repeatPenalty: { penalty: opts.repeatPenalty },
+        customStopTriggers: opts.stopSequences?.length ? opts.stopSequences : undefined,
         onTextChunk: (chunk: string) => {
           completionTokens += 1
           this.emitEvent({

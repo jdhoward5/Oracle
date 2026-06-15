@@ -159,6 +159,8 @@ export interface GenerationOptions {
   /** Repeat penalty applied over the recent window. */
   repeatPenalty: number
   seed?: number
+  /** Strings that, when generated, stop the response early. */
+  stopSequences?: string[]
 }
 
 export const DEFAULT_GENERATION_OPTIONS: GenerationOptions = {
@@ -167,7 +169,8 @@ export const DEFAULT_GENERATION_OPTIONS: GenerationOptions = {
   topK: 40,
   minP: 0.05,
   maxTokens: 2048,
-  repeatPenalty: 1.1
+  repeatPenalty: 1.1,
+  stopSequences: []
 }
 
 /** A reusable, named system prompt the user can apply globally or per-conversation. */

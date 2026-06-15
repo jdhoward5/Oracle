@@ -160,6 +160,14 @@ export const RefreshIcon = (p: IconProps) => (
     <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
   </Icon>
 )
+export const BranchIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <line x1="6" y1="3" x2="6" y2="15" />
+    <circle cx="18" cy="6" r="3" />
+    <circle cx="6" cy="18" r="3" />
+    <path d="M18 9a9 9 0 0 1-9 9" />
+  </Icon>
+)
 export const ChevronRight = (p: IconProps) => (
   <Icon {...p}>
     <polyline points="9 18 15 12 9 6" />

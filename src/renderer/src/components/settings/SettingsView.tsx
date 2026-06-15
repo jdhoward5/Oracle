@@ -148,7 +148,11 @@ function GenerationProfilesSection({ settings }: { settings: AppSettings }) {
             </div>
           )}
           <button
-            onClick={() => actions.updateSettings({ generation: { ...p.options } })}
+            onClick={() =>
+              actions.updateSettings({
+                generation: { ...p.options, stopSequences: settings.generation.stopSequences }
+              })
+            }
             className="btn-surface shrink-0 px-2.5 py-1 text-[12px]"
             title="Apply to the global generation settings"
           >
@@ -328,6 +332,23 @@ export function SettingsView() {
               onChange={(v) => update({ generation: { ...gen, repeatPenalty: v } })} format={(v) => v.toFixed(2)} />
             <Slider label="Max response tokens" value={gen.maxTokens} min={256} max={8192} step={256}
               onChange={(v) => update({ generation: { ...gen, maxTokens: v } })} />
+            <div>
+              <label className="mb-1.5 block text-[13px] text-oracle-text">Stop sequences</label>
+              <textarea
+                value={(gen.stopSequences ?? []).join('\n')}
+                onChange={(e) =>
+                  update({
+                    generation: {
+                      ...gen,
+                      stopSequences: e.target.value.split('\n').filter(Boolean)
+                    }
+                  })
+                }
+                rows={2}
+                placeholder="One per line — generation stops when any is produced"
+                className="input resize-none font-mono text-[12px]"
+              />
+            </div>
           </Section>
 
           <GenerationProfilesSection settings={settings} />

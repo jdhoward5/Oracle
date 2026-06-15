@@ -9,6 +9,7 @@ import {
   EditIcon,
   TrashIcon,
   RefreshIcon,
+  BranchIcon,
   AlertTriangleIcon
 } from '../../lib/icons'
 
@@ -33,7 +34,13 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
   const generating = useStore((s) => s.engine.state === 'generating')
+  const streamStats = useStore((s) => s.streamStats)
   const isUser = message.role === 'user'
+
+  // Live streaming counters, shown only while this assistant turn is generating.
+  const live = streaming && streamStats?.messageId === message.id && streamStats.tokens > 0 ? streamStats : null
+  const liveElapsed = live ? (Date.now() - live.startedAt) / 1000 : 0
+  const liveTps = live && liveElapsed > 0.05 ? live.tokens / liveElapsed : 0
 
   const copy = (): void => {
     void navigator.clipboard.writeText(message.content).then(() => {
@@ -103,6 +110,9 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
           <button onClick={startEdit} disabled={generating} className={ACTION}>
             <EditIcon size={12} /> Edit
           </button>
+          <button onClick={() => actions.branchConversation(message.id)} disabled={generating} className={ACTION}>
+            <BranchIcon size={12} /> Branch
+          </button>
           <button onClick={() => actions.deleteMessage(message.id)} disabled={generating} className={ACTION_DANGER}>
             <TrashIcon size={12} /> Delete
           </button>
@@ -128,6 +138,12 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
             <span className="h-2 w-2 animate-pulse-glow rounded-full bg-oracle-accent" />
             <span className="h-2 w-2 animate-pulse-glow rounded-full bg-oracle-accent [animation-delay:0.2s]" />
             <span className="h-2 w-2 animate-pulse-glow rounded-full bg-oracle-accent [animation-delay:0.4s]" />
+          </div>
+        )}
+
+        {live && (
+          <div className="mt-1 text-[11px] text-oracle-muted/60">
+            {live.tokens} tokens{liveTps > 0 ? ` · ${liveTps.toFixed(1)} tok/s` : ''}
           </div>
         )}
 
@@ -158,6 +174,9 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
                 <RefreshIcon size={12} /> Regenerate
               </button>
             )}
+            <button onClick={() => actions.branchConversation(message.id)} disabled={generating} className={ACTION}>
+              <BranchIcon size={12} /> Branch
+            </button>
             <button onClick={() => actions.deleteMessage(message.id)} disabled={generating} className={ACTION_DANGER}>
               <TrashIcon size={12} /> Delete
             </button>

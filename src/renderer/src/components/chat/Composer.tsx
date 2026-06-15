@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { actions, useStore } from '../../store'
+import { estimateTokens, formatTokens } from '@shared/context'
 import { SendIcon, StopIcon } from '../../lib/icons'
 
 export function Composer() {
@@ -55,9 +56,12 @@ export function Composer() {
             </button>
           )}
         </div>
-        <p className="mt-1.5 text-center text-[10.5px] text-oracle-muted/50">
-          Runs entirely on your machine. Oracle never sends your conversations anywhere.
-        </p>
+        <div className="mt-1.5 flex items-center justify-center gap-2 text-[10.5px] text-oracle-muted/50">
+          <span>Runs entirely on your machine. Oracle never sends your conversations anywhere.</span>
+          {text.trim() && (
+            <span className="font-mono text-oracle-muted/60">· ~{formatTokens(estimateTokens(text))} tokens</span>
+          )}
+        </div>
       </div>
     </div>
   )
