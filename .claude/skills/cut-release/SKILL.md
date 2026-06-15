@@ -67,6 +67,12 @@ What it does, in order (`scripts/release.ps1`):
 6. `git tag -a v<version>` (idempotent) and `git push origin v<version>`.
 7. `gh release create v<version> <installer> <latest.yml> [<blockmap>]
    --prerelease --generate-notes --title "Oracle v<version>"`.
+8. **Auto-prune**: keep only the most recent N releases online (default **2**),
+   deleting older release pages + their installer assets. The in-app updater only
+   reads the newest release's `latest.yml`, so older releases are dead storage.
+   Best-effort — runs after the publish succeeded, so a prune error never fails
+   the release. Flags: `-KeepReleases <n>`, `-CleanupTags` (also delete the pruned
+   releases' tags), `-NoPrune` (leave everything online).
 
 `electron-builder.yml` sets the GitHub `publish` provider so the build generates
 the auto-updater metadata (`latest.yml` + the packaged `app-update.yml`), but
@@ -82,6 +88,9 @@ the `.exe.blockmap` is attached when present (differential downloads).
 - If something's wrong before anyone downloads it:
   `gh release delete v<version> --yes` and `git push --delete origin v<version>`,
   fix, and re-cut.
+- Only the **2 most recent releases** are kept online (auto-pruned in step 8).
+  Git **tags** for pruned releases are kept by default (cheap; allow re-cutting) —
+  pass `-CleanupTags` to drop them too.
 
 ## Notes / gotchas
 

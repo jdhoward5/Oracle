@@ -10,13 +10,26 @@
 # Prereqs on this machine: the CUDA Toolkit + VS Build Tools (for rebuild:llama),
 # node_modules installed, and an authenticated `gh` CLI.
 #
-#   pwsh -File scripts/release.ps1             # tests + GPU smoke + dist + publish
-#   pwsh -File scripts/release.ps1 -SkipSmoke  # skip the GPU smoke gate
-#   pwsh -File scripts/release.ps1 -DryRun     # build only; no tag, no publish
+#   pwsh -File scripts/release.ps1                  # tests + GPU smoke + dist + publish
+#   pwsh -File scripts/release.ps1 -SkipSmoke       # skip the GPU smoke gate
+#   pwsh -File scripts/release.ps1 -DryRun          # build only; no tag, no publish
+#   pwsh -File scripts/release.ps1 -KeepReleases 3  # keep 3 newest releases (default 2)
+#   pwsh -File scripts/release.ps1 -CleanupTags     # also delete the git tags of pruned releases
+#   pwsh -File scripts/release.ps1 -NoPrune         # skip the auto-prune step
 param(
   [switch]$SkipSmoke,
-  [switch]$DryRun
+  [switch]$DryRun,
+  # After a successful publish, keep only this many of the most recent releases
+  # online and delete the rest. The in-app updater only reads the newest release's
+  # latest.yml, so old releases are just storage. Must be >= 1.
+  [int]$KeepReleases = 2,
+  # Also delete the git tags of the releases that get pruned (local + remote).
+  # Off by default — tags are cheap and let you re-cut an old version.
+  [switch]$CleanupTags,
+  # Skip the auto-prune step entirely (leave every release online).
+  [switch]$NoPrune
 )
+if ($KeepReleases -lt 1) { throw "-KeepReleases must be >= 1 (got $KeepReleases)." }
 $ErrorActionPreference = 'Stop'
 Set-Location (Join-Path $PSScriptRoot '..')
 
@@ -83,3 +96,32 @@ git push origin $tag
 
 gh release create $tag @assets --prerelease --generate-notes --title "Oracle $tag"
 Write-Host "==> Published pre-release $tag" -ForegroundColor Green
+
+# Auto-prune: keep only the $KeepReleases most recent releases online; delete the
+# rest (release page + installer assets). The in-app updater only consults the
+# newest release's latest.yml, so older releases are dead storage. Best-effort —
+# the release already published, so a prune failure must not fail the script.
+if (-not $NoPrune) {
+  try {
+    $releases = gh release list --limit 100 --json tagName,createdAt |
+      ConvertFrom-Json |
+      Sort-Object { [datetime]$_.createdAt } -Descending
+    $stale = @($releases | Select-Object -Skip $KeepReleases)
+    if ($stale.Count -eq 0) {
+      Write-Host "==> Nothing to prune ($($releases.Count) release(s) <= keep $KeepReleases)."
+    } else {
+      foreach ($r in $stale) {
+        Write-Host "==> Pruning old release $($r.tagName)"
+        if ($CleanupTags) {
+          gh release delete $r.tagName --yes --cleanup-tag
+        } else {
+          gh release delete $r.tagName --yes
+        }
+      }
+      $tagNote = if ($CleanupTags) { ' (and their tags)' } else { '' }
+      Write-Host "==> Pruned $($stale.Count) old release(s)$tagNote; kept the $KeepReleases most recent." -ForegroundColor Green
+    }
+  } catch {
+    Write-Warning "Auto-prune failed (the release itself published fine): $_"
+  }
+}
