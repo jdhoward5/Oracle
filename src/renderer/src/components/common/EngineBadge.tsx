@@ -11,25 +11,25 @@ export function EngineBadge() {
   const isGpu = gpu === 'cuda' || gpu === 'vulkan' || gpu === 'metal'
 
   if (engine.state === 'idle' && !engine.modelId) {
-    return <span className="no-drag text-[11px] text-oracle-muted/70">No model loaded</span>
+    return <span className="no-drag text-[11px] text-sibyl-muted/70">No model loaded</span>
   }
 
   return (
     <div className="no-drag flex items-center gap-3 text-[11px]">
       {engine.state === 'loading' && (
-        <span className="flex items-center gap-1.5 text-oracle-accent">
-          <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-oracle-accent" />
+        <span className="flex items-center gap-1.5 text-sibyl-accent">
+          <span className="h-1.5 w-1.5 animate-pulse-glow rounded-full bg-sibyl-accent" />
           Loading…
         </span>
       )}
       {loaded && (
-        <span className="max-w-[260px] truncate font-medium text-oracle-text" title={loaded.filename}>
+        <span className="max-w-[260px] truncate font-medium text-sibyl-text" title={loaded.filename}>
           {loaded.filename.replace(/\.gguf$/i, '')}
         </span>
       )}
       <span
         className={`flex items-center gap-1 rounded-md px-1.5 py-0.5 ${
-          isGpu ? 'bg-oracle-accent/15 text-oracle-glow' : 'bg-oracle-surface-2 text-oracle-muted'
+          isGpu ? 'bg-sibyl-accent/15 text-sibyl-glow' : 'bg-sibyl-surface-2 text-sibyl-muted'
         }`}
         title={isGpu ? `GPU: ${String(gpu).toUpperCase()}` : 'CPU inference'}
       >
@@ -37,12 +37,12 @@ export function EngineBadge() {
         {isGpu ? String(gpu).toUpperCase() : 'CPU'}
       </span>
       {engine.vramTotalBytes != null && engine.vramUsedBytes != null && isGpu && (
-        <span className="text-oracle-muted" title="VRAM used / total">
+        <span className="text-sibyl-muted" title="VRAM used / total">
           {formatBytes(engine.vramUsedBytes)} / {formatBytes(engine.vramTotalBytes)}
         </span>
       )}
       {engine.contextSize != null && (
-        <span className="text-oracle-muted/70" title="Context window">
+        <span className="text-sibyl-muted/70" title="Context window">
           {(engine.contextSize / 1024).toFixed(0)}K ctx
         </span>
       )}

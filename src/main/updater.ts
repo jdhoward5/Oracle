@@ -15,7 +15,7 @@ const { autoUpdater } = electronUpdater
  *
  * Policy (see plan): check automatically on launch, but never download or
  * install without an explicit user action — installers are hundreds of MB.
- * Pre-releases are eligible because Oracle currently ships only `beta.N` tags.
+ * Pre-releases are eligible because Sibyl currently ships only `beta.N` tags.
  */
 class Updater extends EventEmitter {
   private status: UpdateStatus = { state: 'idle', currentVersion: app.getVersion() }

@@ -8,10 +8,10 @@ export function ModelsView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-oracle-border/60 px-6 py-4">
+      <div className="flex items-center justify-between border-b border-sibyl-border/60 px-6 py-4">
         <div>
-          <h1 className="text-xl font-semibold text-oracle-text">Your models</h1>
-          <p className="text-[13px] text-oracle-muted">
+          <h1 className="text-xl font-semibold text-sibyl-text">Your models</h1>
+          <p className="text-[13px] text-sibyl-muted">
             {models.length} model{models.length === 1 ? '' : 's'} installed locally
           </p>
         </div>
@@ -23,8 +23,8 @@ export function ModelsView() {
       <div className="flex-1 overflow-y-auto p-6">
         {models.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <BoxIcon size={36} className="mb-3 text-oracle-muted/40" />
-            <p className="mb-4 text-[14px] text-oracle-muted">No models installed yet.</p>
+            <BoxIcon size={36} className="mb-3 text-sibyl-muted/40" />
+            <p className="mb-4 text-[14px] text-sibyl-muted">No models installed yet.</p>
             <button onClick={() => actions.setView('discover')} className="btn-primary">
               <CompassIcon size={16} /> Browse Hugging Face
             </button>
@@ -39,17 +39,17 @@ export function ModelsView() {
                   <div
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
                       isLoaded
-                        ? 'bg-gradient-to-br from-oracle-accent to-oracle-accent-2 text-white'
-                        : 'bg-oracle-surface-2 text-oracle-muted'
+                        ? 'bg-gradient-to-br from-sibyl-accent to-sibyl-accent-2 text-white'
+                        : 'bg-sibyl-surface-2 text-sibyl-muted'
                     }`}
                   >
                     <BoxIcon size={20} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[14px] font-semibold text-oracle-text">
+                    <div className="truncate text-[14px] font-semibold text-sibyl-text">
                       {m.filename.replace(/\.gguf$/i, '')}
                     </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[12px] text-oracle-muted">
+                    <div className="flex flex-wrap items-center gap-2 text-[12px] text-sibyl-muted">
                       <span className="truncate">{m.repoId}</span>
                       {m.quant && <span className="chip">{m.quant}</span>}
                       {m.paramLabel && <span className="chip">{m.paramLabel}</span>}
@@ -57,7 +57,7 @@ export function ModelsView() {
                       {m.trainContextLength && <span>{(m.trainContextLength / 1024).toFixed(0)}K ctx</span>}
                       {m.verifiedBy === 'sha256' && (
                         <span
-                          className="inline-flex items-center gap-1 text-oracle-glow"
+                          className="inline-flex items-center gap-1 text-sibyl-glow"
                           title="SHA-256 verified against Hugging Face's published checksum"
                         >
                           <CheckIcon size={12} /> Verified
@@ -67,7 +67,7 @@ export function ModelsView() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {isLoaded ? (
-                      <span className="flex items-center gap-1.5 rounded-lg bg-oracle-accent/15 px-3 py-2 text-[12px] font-medium text-oracle-glow">
+                      <span className="flex items-center gap-1.5 rounded-lg bg-sibyl-accent/15 px-3 py-2 text-[12px] font-medium text-sibyl-glow">
                         <CheckIcon size={15} /> Loaded
                       </span>
                     ) : (

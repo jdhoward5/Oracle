@@ -3,7 +3,7 @@ import { isMultipartGGUF, parseQuant } from '@shared/format'
 import { getSettings } from './store'
 
 const HF_API = 'https://huggingface.co/api'
-const UA = 'Oracle/0.1 (+https://github.com/oracle-app)'
+const UA = 'Sibyl/0.1 (+https://github.com/sibyl-app)'
 
 async function hfHeaders(): Promise<Record<string, string>> {
   const { hfToken } = await getSettings()

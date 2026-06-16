@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc'
-import type { OracleBridge, ChatSendRequest } from '@shared/ipc'
+import type { SibylBridge, ChatSendRequest } from '@shared/ipc'
 import type { AppSettings, Conversation } from '@shared/types'
 
 /**
@@ -15,7 +15,7 @@ function subscribe<T>(channel: string, cb: (payload: T) => void): () => void {
   return () => ipcRenderer.removeListener(channel, listener)
 }
 
-const bridge: OracleBridge = {
+const bridge: SibylBridge = {
   hf: {
     search: (query, sort) => ipcRenderer.invoke(IPC.hfSearch, query, sort),
     modelDetail: (repoId) => ipcRenderer.invoke(IPC.hfModelDetail, repoId)
@@ -71,4 +71,4 @@ const bridge: OracleBridge = {
   }
 }
 
-contextBridge.exposeInMainWorld('oracle', bridge)
+contextBridge.exposeInMainWorld('sibyl', bridge)

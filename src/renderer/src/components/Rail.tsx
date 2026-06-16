@@ -16,7 +16,7 @@ export function Rail() {
   )
 
   return (
-    <nav className="flex w-[68px] shrink-0 flex-col items-center gap-1 border-r border-oracle-border/60 bg-oracle-bg py-3">
+    <nav className="flex w-[68px] shrink-0 flex-col items-center gap-1 border-r border-sibyl-border/60 bg-sibyl-bg py-3">
       {items.map(({ view: v, label, Icon }) => {
         const active = view === v
         const badge = v === 'models' && downloadCount > 0 ? downloadCount : 0
@@ -26,23 +26,23 @@ export function Rail() {
             onClick={() => actions.setView(v)}
             className={`no-drag group relative flex h-14 w-14 flex-col items-center justify-center gap-1 rounded-xl transition-all duration-150 ${
               active
-                ? 'bg-oracle-surface-2 text-oracle-text'
-                : 'text-oracle-muted hover:bg-oracle-surface hover:text-oracle-text'
+                ? 'bg-sibyl-surface-2 text-sibyl-text'
+                : 'text-sibyl-muted hover:bg-sibyl-surface hover:text-sibyl-text'
             }`}
             title={label}
           >
             {active && (
-              <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-oracle-accent" />
+              <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-sibyl-accent" />
             )}
             <Icon size={20} />
             <span className="text-[10px] font-medium">{label}</span>
             {badge > 0 && (
-              <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-oracle-accent px-1 text-[9px] font-bold text-white">
+              <span className="absolute right-2 top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-sibyl-accent px-1 text-[9px] font-bold text-white">
                 {badge}
               </span>
             )}
             {v === 'models' && badge === 0 && modelCount > 0 && (
-              <span className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-oracle-accent/60" />
+              <span className="absolute right-2.5 top-2.5 h-1.5 w-1.5 rounded-full bg-sibyl-accent/60" />
             )}
           </button>
         )

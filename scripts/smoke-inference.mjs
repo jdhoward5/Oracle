@@ -1,4 +1,4 @@
-// End-to-end smoke test for Oracle's core pipeline, run OUTSIDE Electron:
+// End-to-end smoke test for Sibyl's core pipeline, run OUTSIDE Electron:
 //   1. Initialize the locally-built CUDA llama backend
 //   2. Download a small GGUF chat model from Hugging Face (resumable)
 //   3. Load it onto the GPU, open a chat session, stream a response
@@ -49,7 +49,7 @@ async function main() {
   const context = await model.createContext({ contextSize: Math.min(4096, model.trainContextSize) })
   const session = new LlamaChatSession({ contextSequence: context.getSequence() })
 
-  const prompt = 'In one short sentence, introduce yourself as Oracle, a local AI assistant.'
+  const prompt = 'In one short sentence, introduce yourself as Sibyl, a local AI assistant.'
   log('Prompt:', prompt)
   process.stdout.write('[smoke] response: ')
 

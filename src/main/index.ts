@@ -70,7 +70,7 @@ function hardenSession(): void {
     })
   })
 
-  // Deny all permission requests (camera, mic, geolocation, etc.) — Oracle needs none.
+  // Deny all permission requests (camera, mic, geolocation, etc.) — Sibyl needs none.
   ses.setPermissionRequestHandler((_wc, _permission, cb) => cb(false))
   ses.setPermissionCheckHandler(() => false)
 }
@@ -83,7 +83,7 @@ function createWindow(): void {
     minHeight: 640,
     show: false,
     backgroundColor: '#0b0c14',
-    title: 'Oracle',
+    title: 'Sibyl',
     titleBarStyle: 'hidden',
     titleBarOverlay: { color: '#0b0c14', symbolColor: '#8b8fa8', height: 40 },
     webPreferences: {
@@ -110,7 +110,7 @@ function createWindow(): void {
 
   // Headless smoke verification: optionally drive a real in-app generation
   // through the full IPC/engine stack, capture the rendered UI, then quit.
-  if (process.env.ORACLE_SMOKE) {
+  if (process.env.SIBYL_SMOKE) {
     win.webContents.once('did-finish-load', () => {
       void runSmoke(win)
     })
@@ -143,7 +143,7 @@ function createWindow(): void {
 // Drives a real generation through the renderer's IPC bridge to validate the
 // full chat path end-to-end inside Electron. Guarded entirely by env vars.
 async function runSmoke(win: BrowserWindow): Promise<void> {
-  const outDir = process.env.ORACLE_SMOKE_OUT || app.getPath('temp')
+  const outDir = process.env.SIBYL_SMOKE_OUT || app.getPath('temp')
   const fs = await import('node:fs')
   const shot = async (name: string): Promise<void> => {
     const img = await win.webContents.capturePage()
@@ -151,7 +151,7 @@ async function runSmoke(win: BrowserWindow): Promise<void> {
   }
 
   try {
-    const modelFile = process.env.ORACLE_SMOKE_MODEL
+    const modelFile = process.env.SIBYL_SMOKE_MODEL
     if (modelFile) {
       // Register the pre-downloaded model through the real persistence layer.
       const { upsertInstalledModel } = await import('./store')
@@ -170,11 +170,11 @@ async function runSmoke(win: BrowserWindow): Promise<void> {
         installedAt: new Date().toISOString()
       })
 
-      // Drive load → send → stream through window.oracle (the real bridge).
+      // Drive load → send → stream through window.sibyl (the real bridge).
       const result = (await win.webContents.executeJavaScript(
         `(async () => {
           const id = ${JSON.stringify(modelIdFor(repoId, filename))};
-          const o = window.oracle;
+          const o = window.sibyl;
           const load = await o.engine.load(id);
           if (!load.ok) return { error: 'load failed: ' + load.error };
 
@@ -205,7 +205,7 @@ async function runSmoke(win: BrowserWindow): Promise<void> {
 
           // Two separate conversations: the second forces the setChatHistory
           // swap path (previously would exhaust context sequences).
-          const r1 = await runTurn('smoke-conv-1', 'asst-1', 'Reply with exactly: Oracle is online.');
+          const r1 = await runTurn('smoke-conv-1', 'asst-1', 'Reply with exactly: Sibyl is online.');
           if (r1.error || !(r1.text || '').trim()) return { error: 'turn1: ' + (r1.error || 'empty') };
           const r2 = await runTurn('smoke-conv-2', 'asst-2', 'What is 2+2? Reply with just the number.');
           if (r2.error || !(r2.text || '').trim()) return { error: 'turn2: ' + (r2.error || 'empty') };
@@ -215,7 +215,7 @@ async function runSmoke(win: BrowserWindow): Promise<void> {
       )) as { text?: string; text2?: string; error?: string; stats?: unknown }
 
       console.log('[smoke] in-app chat result:', JSON.stringify(result))
-      await shot('oracle-smoke-chat.png')
+      await shot('sibyl-smoke-chat.png')
       if (result.error || !result.text?.trim() || !result.text2?.trim()) {
         console.error('[smoke] CHAT FAILED')
         setTimeout(() => app.exit(1), 300)
@@ -224,9 +224,9 @@ async function runSmoke(win: BrowserWindow): Promise<void> {
       console.log('[smoke] ✅ IN-APP CHAT PASSED (2 conversations)')
     } else {
       // Give the renderer time to finish init() (slower on a cold dev server).
-      const delay = Number(process.env.ORACLE_SMOKE_DELAY || 0)
+      const delay = Number(process.env.SIBYL_SMOKE_DELAY || 0)
       if (delay > 0) await new Promise((r) => setTimeout(r, delay))
-      await shot('oracle-smoke.png')
+      await shot('sibyl-smoke.png')
     }
   } catch (err) {
     console.error('[smoke] error', err)

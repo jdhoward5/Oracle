@@ -94,11 +94,11 @@ export interface AppInfo {
 }
 
 /**
- * The full surface exposed on `window.oracle`. Every method is async and
+ * The full surface exposed on `window.sibyl`. Every method is async and
  * returns a structured Result (or void for fire-and-forget) — the renderer
  * never touches ipcRenderer or node directly.
  */
-export interface OracleBridge {
+export interface SibylBridge {
   hf: {
     search(query: string, sort?: 'trending' | 'downloads' | 'likes'): Promise<Result<HFModelSummary[]>>
     modelDetail(repoId: string): Promise<Result<HFModelDetail>>
@@ -168,6 +168,6 @@ export interface OracleBridge {
 
 declare global {
   interface Window {
-    oracle: OracleBridge
+    sibyl: SibylBridge
   }
 }

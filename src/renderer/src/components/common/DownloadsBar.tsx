@@ -10,7 +10,7 @@ export function DownloadsBar() {
   if (active.length === 0) return null
 
   return (
-    <div className="shrink-0 border-t border-oracle-border/60 bg-oracle-surface/80 px-4 py-2 backdrop-blur">
+    <div className="shrink-0 border-t border-sibyl-border/60 bg-sibyl-surface/80 px-4 py-2 backdrop-blur">
       <div className="mx-auto flex max-w-4xl flex-col gap-2">
         {active.map((d) => {
           const verifying = d.status === 'verifying'
@@ -24,11 +24,11 @@ export function DownloadsBar() {
               : 0
           return (
             <div key={d.id} className="flex items-center gap-3 text-[12px]">
-              <DownloadIcon size={15} className="shrink-0 text-oracle-accent" />
+              <DownloadIcon size={15} className="shrink-0 text-sibyl-accent" />
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="truncate font-medium text-oracle-text">{d.filename}</span>
-                  <span className="shrink-0 text-oracle-muted">
+                  <span className="truncate font-medium text-sibyl-text">{d.filename}</span>
+                  <span className="shrink-0 text-sibyl-muted">
                     {verifying
                       ? verifyPct != null
                         ? `Verifying… ${Math.round(verifyPct)}%`
@@ -38,9 +38,9 @@ export function DownloadsBar() {
                         : `${formatBytes(d.receivedBytes)} / ${formatBytes(d.totalBytes)} · ${formatSpeed(d.speed)} · ${formatEta(d.etaSeconds)}`}
                   </span>
                 </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-oracle-bg">
+                <div className="h-1.5 overflow-hidden rounded-full bg-sibyl-bg">
                   <div
-                    className="h-full rounded-full bg-gradient-to-r from-oracle-accent to-oracle-accent-2 transition-all duration-300"
+                    className="h-full rounded-full bg-gradient-to-r from-sibyl-accent to-sibyl-accent-2 transition-all duration-300"
                     style={{ width: `${Math.min(100, pct)}%` }}
                   />
                 </div>

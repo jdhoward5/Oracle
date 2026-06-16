@@ -1,4 +1,4 @@
-# Oracle — project notes for Claude
+# Sibyl — project notes for Claude
 
 Desktop (Electron) app to download Hugging Face GGUF chat models and run them
 locally via `node-llama-cpp`. Stack: electron-vite + React + TS + Tailwind.
@@ -8,7 +8,7 @@ locally via `node-llama-cpp`. Stack: electron-vite + React + TS + Tailwind.
   (loaded by the renderer). Unit-tested (`format.test.ts`).
 - `src/main/` — Electron main. `engine.ts` (inference), `downloads.ts`, `hf.ts`,
   `store.ts` (persistence), `llama.ts` (backend), `ipc.ts` (router), `index.ts`.
-- `src/preload/index.ts` — the only renderer capability: `window.oracle` bridge.
+- `src/preload/index.ts` — the only renderer capability: `window.sibyl` bridge.
 - `src/renderer/src/` — React UI. State in `store.ts` (custom external store,
   `useSyncExternalStore`), components by feature, `lib/markdown.tsx` (safe).
 
@@ -73,9 +73,9 @@ locally via `node-llama-cpp`. Stack: electron-vite + React + TS + Tailwind.
 ## Verify
 - `npm run typecheck && npm test && npm run build`
 - `npm run smoke` — real download + GPU generation (outside Electron).
-- Headless in-app E2E: build, then run electron with `ORACLE_SMOKE=1` and
-  `ORACLE_SMOKE_MODEL=<path to a .gguf>` (drives load + 2 conversations through
-  the real IPC stack, screenshots to `ORACLE_SMOKE_OUT`).
+- Headless in-app E2E: build, then run electron with `SIBYL_SMOKE=1` and
+  `SIBYL_SMOKE_MODEL=<path to a .gguf>` (drives load + 2 conversations through
+  the real IPC stack, screenshots to `SIBYL_SMOKE_OUT`).
 
 ## npm audit / security
 - **Never run `npm audit fix --force`** here — it blindly bumps Electron/Vite/

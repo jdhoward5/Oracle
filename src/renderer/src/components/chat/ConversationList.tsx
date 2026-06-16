@@ -27,7 +27,7 @@ export function ConversationList() {
     : conversations
 
   return (
-    <div className="flex w-[260px] shrink-0 flex-col border-r border-oracle-border/60 bg-oracle-bg">
+    <div className="flex w-[260px] shrink-0 flex-col border-r border-sibyl-border/60 bg-sibyl-bg">
       <div className="flex flex-col gap-2 p-3">
         <button onClick={() => actions.newConversation()} className="btn-primary w-full">
           <PlusIcon size={16} /> New chat
@@ -35,7 +35,7 @@ export function ConversationList() {
         <div className="relative">
           <SearchIcon
             size={14}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-oracle-muted"
+            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sibyl-muted"
           />
           <input
             value={query}
@@ -47,12 +47,12 @@ export function ConversationList() {
       </div>
       <div className="flex-1 overflow-y-auto px-2 pb-2">
         {conversations.length === 0 && (
-          <p className="px-3 py-6 text-center text-[12px] text-oracle-muted/70">
+          <p className="px-3 py-6 text-center text-[12px] text-sibyl-muted/70">
             No conversations yet.
           </p>
         )}
         {conversations.length > 0 && filtered.length === 0 && (
-          <p className="px-3 py-6 text-center text-[12px] text-oracle-muted/70">
+          <p className="px-3 py-6 text-center text-[12px] text-sibyl-muted/70">
             No conversations match “{query.trim()}”.
           </p>
         )}
@@ -68,10 +68,10 @@ export function ConversationList() {
               key={c.id}
               onClick={() => actions.selectConversation(c.id)}
               className={`group mb-1 flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 transition-colors ${
-                active ? 'bg-oracle-surface-2' : 'hover:bg-oracle-surface'
+                active ? 'bg-sibyl-surface-2' : 'hover:bg-sibyl-surface'
               }`}
             >
-              <ChatIcon size={15} className="shrink-0 text-oracle-muted" />
+              <ChatIcon size={15} className="shrink-0 text-sibyl-muted" />
               {editingId === c.id ? (
                 <input
                   autoFocus
@@ -94,9 +94,9 @@ export function ConversationList() {
                 />
               ) : (
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] text-oracle-text">{c.title}</div>
+                  <div className="truncate text-[13px] text-sibyl-text">{c.title}</div>
                   {snippet && (
-                    <div className="truncate text-[11px] text-oracle-muted/80">{snippet}</div>
+                    <div className="truncate text-[11px] text-sibyl-muted/80">{snippet}</div>
                   )}
                 </div>
               )}
@@ -107,7 +107,7 @@ export function ConversationList() {
                     setEditingId(c.id)
                     setDraft(c.title)
                   }}
-                  className="rounded p-1 text-oracle-muted hover:text-oracle-text"
+                  className="rounded p-1 text-sibyl-muted hover:text-sibyl-text"
                   title="Rename"
                 >
                   <EditIcon size={13} />
@@ -117,7 +117,7 @@ export function ConversationList() {
                     e.stopPropagation()
                     void actions.deleteConversation(c.id)
                   }}
-                  className="rounded p-1 text-oracle-muted hover:text-red-300"
+                  className="rounded p-1 text-sibyl-muted hover:text-red-300"
                   title="Delete"
                 >
                   <TrashIcon size={13} />

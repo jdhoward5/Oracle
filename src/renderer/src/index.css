@@ -20,8 +20,8 @@ body,
 }
 
 body {
-  background-color: theme('colors.oracle.bg');
-  color: theme('colors.oracle.text');
+  background-color: theme('colors.sibyl.bg');
+  color: theme('colors.sibyl.text');
   font-family: theme('fontFamily.sans');
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -64,25 +64,25 @@ body {
 /* ---- Reusable component classes ----------------------------------------- */
 @layer components {
   .card {
-    @apply rounded-xl border border-oracle-border bg-oracle-surface;
+    @apply rounded-xl border border-sibyl-border bg-sibyl-surface;
   }
   .btn {
     @apply no-drag inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-primary {
-    @apply btn bg-gradient-to-br from-oracle-accent to-oracle-accent-2 text-white shadow-lg shadow-oracle-accent/20 hover:brightness-110 active:brightness-95;
+    @apply btn bg-gradient-to-br from-sibyl-accent to-sibyl-accent-2 text-white shadow-lg shadow-sibyl-accent/20 hover:brightness-110 active:brightness-95;
   }
   .btn-ghost {
-    @apply btn text-oracle-muted hover:bg-oracle-surface-2 hover:text-oracle-text;
+    @apply btn text-sibyl-muted hover:bg-sibyl-surface-2 hover:text-sibyl-text;
   }
   .btn-surface {
-    @apply btn border border-oracle-border bg-oracle-surface-2 text-oracle-text hover:border-oracle-accent/50;
+    @apply btn border border-sibyl-border bg-sibyl-surface-2 text-sibyl-text hover:border-sibyl-accent/50;
   }
   .input {
-    @apply no-drag w-full rounded-lg border border-oracle-border bg-oracle-bg px-3 py-2 text-sm text-oracle-text placeholder:text-oracle-muted/60 outline-none transition focus:border-oracle-accent/70 focus:ring-2 focus:ring-oracle-accent/20;
+    @apply no-drag w-full rounded-lg border border-sibyl-border bg-sibyl-bg px-3 py-2 text-sm text-sibyl-text placeholder:text-sibyl-muted/60 outline-none transition focus:border-sibyl-accent/70 focus:ring-2 focus:ring-sibyl-accent/20;
   }
   .chip {
-    @apply inline-flex items-center gap-1 rounded-md bg-oracle-surface-2 px-2 py-0.5 text-[11px] font-medium text-oracle-muted;
+    @apply inline-flex items-center gap-1 rounded-md bg-sibyl-surface-2 px-2 py-0.5 text-[11px] font-medium text-sibyl-muted;
   }
 }
 
@@ -107,7 +107,7 @@ body {
 }
 
 /* Range sliders. */
-.oracle-range {
+.sibyl-range {
   -webkit-appearance: none;
   appearance: none;
   height: 5px;
@@ -115,7 +115,7 @@ body {
   background: #262a3d;
   outline: none;
 }
-.oracle-range::-webkit-slider-thumb {
+.sibyl-range::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   width: 16px;
@@ -126,7 +126,7 @@ body {
   box-shadow: 0 0 0 4px rgba(139, 124, 255, 0.15);
   transition: box-shadow 0.15s;
 }
-.oracle-range::-webkit-slider-thumb:hover {
+.sibyl-range::-webkit-slider-thumb:hover {
   box-shadow: 0 0 0 6px rgba(139, 124, 255, 0.22);
 }
 
@@ -134,53 +134,53 @@ body {
 .caret::after {
   content: '▋';
   margin-left: 1px;
-  color: theme('colors.oracle.accent');
+  color: theme('colors.sibyl.accent');
   animation: pulse-glow 1s steps(2) infinite;
 }
 
-/* Markdown content styling (scoped to .prose-oracle). */
-.prose-oracle {
-  @apply text-[15px] leading-relaxed text-oracle-text;
+/* Markdown content styling (scoped to .prose-sibyl). */
+.prose-sibyl {
+  @apply text-[15px] leading-relaxed text-sibyl-text;
 }
-.prose-oracle p {
+.prose-sibyl p {
   margin: 0.5em 0;
 }
-.prose-oracle h1,
-.prose-oracle h2,
-.prose-oracle h3 {
-  @apply font-semibold text-oracle-text;
+.prose-sibyl h1,
+.prose-sibyl h2,
+.prose-sibyl h3 {
+  @apply font-semibold text-sibyl-text;
   margin: 0.8em 0 0.4em;
 }
-.prose-oracle h1 {
+.prose-sibyl h1 {
   @apply text-xl;
 }
-.prose-oracle h2 {
+.prose-sibyl h2 {
   @apply text-lg;
 }
-.prose-oracle h3 {
+.prose-sibyl h3 {
   @apply text-base;
 }
-.prose-oracle ul,
-.prose-oracle ol {
+.prose-sibyl ul,
+.prose-sibyl ol {
   margin: 0.5em 0;
   padding-left: 1.4em;
 }
-.prose-oracle ul {
+.prose-sibyl ul {
   list-style: disc;
 }
-.prose-oracle ol {
+.prose-sibyl ol {
   list-style: decimal;
 }
-.prose-oracle li {
+.prose-sibyl li {
   margin: 0.2em 0;
 }
-.prose-oracle a {
-  @apply text-oracle-accent-2 underline underline-offset-2;
+.prose-sibyl a {
+  @apply text-sibyl-accent-2 underline underline-offset-2;
 }
-.prose-oracle code.inline {
-  @apply rounded bg-oracle-bg px-1.5 py-0.5 font-mono text-[13px] text-oracle-glow;
+.prose-sibyl code.inline {
+  @apply rounded bg-sibyl-bg px-1.5 py-0.5 font-mono text-[13px] text-sibyl-glow;
 }
-.prose-oracle blockquote {
-  @apply border-l-2 border-oracle-accent/50 pl-3 text-oracle-muted;
+.prose-sibyl blockquote {
+  @apply border-l-2 border-sibyl-accent/50 pl-3 text-sibyl-muted;
   margin: 0.5em 0;
 }

@@ -26,7 +26,7 @@ export function Composer() {
   return (
     <div className="shrink-0 px-4 pb-4 pt-2">
       <div className="mx-auto max-w-3xl">
-        <div className="flex items-end gap-2 rounded-2xl border border-oracle-border bg-oracle-surface p-2 shadow-xl transition-colors focus-within:border-oracle-accent/60">
+        <div className="flex items-end gap-2 rounded-2xl border border-sibyl-border bg-sibyl-surface p-2 shadow-xl transition-colors focus-within:border-sibyl-accent/60">
           <textarea
             ref={ref}
             value={text}
@@ -38,8 +38,8 @@ export function Composer() {
               }
             }}
             rows={1}
-            placeholder={hasModel ? 'Message Oracle…  (Enter to send, Shift+Enter for newline)' : 'Load a model to start chatting…'}
-            className="no-drag selectable max-h-[220px] flex-1 resize-none bg-transparent px-2 py-1.5 text-[15px] text-oracle-text placeholder:text-oracle-muted/60 outline-none"
+            placeholder={hasModel ? 'Message Sibyl…  (Enter to send, Shift+Enter for newline)' : 'Load a model to start chatting…'}
+            className="no-drag selectable max-h-[220px] flex-1 resize-none bg-transparent px-2 py-1.5 text-[15px] text-sibyl-text placeholder:text-sibyl-muted/60 outline-none"
           />
           {generating ? (
             <button onClick={() => actions.abortGeneration()} className="btn-surface h-10 w-10 shrink-0 p-0" title="Stop">
@@ -56,10 +56,10 @@ export function Composer() {
             </button>
           )}
         </div>
-        <div className="mt-1.5 flex items-center justify-center gap-2 text-[10.5px] text-oracle-muted/50">
-          <span>Runs entirely on your machine. Oracle never sends your conversations anywhere.</span>
+        <div className="mt-1.5 flex items-center justify-center gap-2 text-[10.5px] text-sibyl-muted/50">
+          <span>Runs entirely on your machine. Sibyl never sends your conversations anywhere.</span>
           {text.trim() && (
-            <span className="font-mono text-oracle-muted/60">· ~{formatTokens(estimateTokens(text))} tokens</span>
+            <span className="font-mono text-sibyl-muted/60">· ~{formatTokens(estimateTokens(text))} tokens</span>
           )}
         </div>
       </div>

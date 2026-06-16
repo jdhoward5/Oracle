@@ -22,11 +22,11 @@ interface Props {
   highlighted?: boolean
 }
 
-const HIGHLIGHT = 'rounded-2xl ring-2 ring-oracle-accent/70 ring-offset-2 ring-offset-oracle-bg'
+const HIGHLIGHT = 'rounded-2xl ring-2 ring-sibyl-accent/70 ring-offset-2 ring-offset-sibyl-bg'
 
 const ACTION_BASE =
-  'flex items-center gap-1 text-[11px] text-oracle-muted transition-colors disabled:cursor-not-allowed disabled:opacity-40'
-const ACTION = `${ACTION_BASE} hover:text-oracle-text`
+  'flex items-center gap-1 text-[11px] text-sibyl-muted transition-colors disabled:cursor-not-allowed disabled:opacity-40'
+const ACTION = `${ACTION_BASE} hover:text-sibyl-text`
 const ACTION_DANGER = `${ACTION_BASE} hover:text-red-300`
 
 function MessageImpl({ message, streaming, isLast = false, highlighted = false }: Props) {
@@ -99,7 +99,7 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
     }
     return (
       <div className={`group flex flex-col items-end animate-fade-in ${highlighted ? HIGHLIGHT : ''}`}>
-        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-gradient-to-br from-oracle-accent/90 to-oracle-accent-2/90 px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-lg shadow-oracle-accent/10">
+        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-gradient-to-br from-sibyl-accent/90 to-sibyl-accent-2/90 px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-lg shadow-sibyl-accent/10">
           <p className="selectable whitespace-pre-wrap">{message.content}</p>
         </div>
         <div className="mt-1.5 flex items-center gap-3 opacity-0 transition-opacity group-hover:opacity-100">
@@ -124,7 +124,7 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
   // --- assistant message ---------------------------------------------------
   return (
     <div className={`group flex gap-3 animate-fade-in ${highlighted ? HIGHLIGHT : ''}`}>
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-oracle-accent to-oracle-accent-2 text-white shadow-md shadow-oracle-accent/30">
+      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sibyl-accent to-sibyl-accent-2 text-white shadow-md shadow-sibyl-accent/30">
         <SparkIcon size={15} />
       </div>
       <div className="min-w-0 flex-1">
@@ -135,14 +135,14 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
           </div>
         ) : message.error ? null : (
           <div className="flex items-center gap-1 py-2">
-            <span className="h-2 w-2 animate-pulse-glow rounded-full bg-oracle-accent" />
-            <span className="h-2 w-2 animate-pulse-glow rounded-full bg-oracle-accent [animation-delay:0.2s]" />
-            <span className="h-2 w-2 animate-pulse-glow rounded-full bg-oracle-accent [animation-delay:0.4s]" />
+            <span className="h-2 w-2 animate-pulse-glow rounded-full bg-sibyl-accent" />
+            <span className="h-2 w-2 animate-pulse-glow rounded-full bg-sibyl-accent [animation-delay:0.2s]" />
+            <span className="h-2 w-2 animate-pulse-glow rounded-full bg-sibyl-accent [animation-delay:0.4s]" />
           </div>
         )}
 
         {live && (
-          <div className="mt-1 text-[11px] text-oracle-muted/60">
+          <div className="mt-1 text-[11px] text-sibyl-muted/60">
             {live.tokens} tokens{liveTps > 0 ? ` · ${liveTps.toFixed(1)} tok/s` : ''}
           </div>
         )}
@@ -181,7 +181,7 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
               <TrashIcon size={12} /> Delete
             </button>
             {message.stats && (
-              <span className="text-[11px] text-oracle-muted/70">
+              <span className="text-[11px] text-sibyl-muted/70">
                 {message.stats.completionTokens} tokens · {message.stats.tokensPerSecond.toFixed(1)} tok/s
               </span>
             )}

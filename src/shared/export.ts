@@ -6,7 +6,7 @@ import type { ChatMessage, Conversation } from './types'
 export type ExportFormat = 'markdown' | 'json' | 'text'
 
 const roleLabel = (role: ChatMessage['role']): string =>
-  role === 'user' ? 'You' : role === 'assistant' ? 'Oracle' : 'System'
+  role === 'user' ? 'You' : role === 'assistant' ? 'Sibyl' : 'System'
 
 /** Turns rendered into the document — skip the empty assistant placeholder + system turns. */
 function exportableMessages(conv: Conversation): ChatMessage[] {

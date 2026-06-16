@@ -26,7 +26,7 @@ export function ContextMeter() {
   return (
     <div className="no-drag flex items-center gap-2" title={tip}>
       <LayersIcon size={13} className={text} />
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-oracle-surface-2">
+      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-sibyl-surface-2">
         <div
           className={`h-full rounded-full transition-all duration-500 ${bar}`}
           style={{ width: `${Math.max(2, pct)}%` }}
@@ -38,7 +38,7 @@ export function ContextMeter() {
       <button
         onClick={() => void actions.compact()}
         disabled={compacting || generating}
-        className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-oracle-muted transition-colors hover:bg-oracle-surface-2 hover:text-oracle-text disabled:opacity-40"
+        className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-sibyl-muted transition-colors hover:bg-sibyl-surface-2 hover:text-sibyl-text disabled:opacity-40"
         title="Summarize older messages to free up context"
       >
         <CompressIcon size={13} />

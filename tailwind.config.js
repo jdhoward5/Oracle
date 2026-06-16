@@ -8,8 +8,8 @@ export default {
         mono: ['JetBrains Mono', 'Cascadia Code', 'Consolas', 'monospace']
       },
       colors: {
-        // Oracle palette — deep indigo night with an arcane violet accent.
-        oracle: {
+        // Sibyl palette — deep indigo night with an arcane violet accent.
+        sibyl: {
           bg: '#0b0c14',
           surface: '#13141f',
           'surface-2': '#1b1d2b',

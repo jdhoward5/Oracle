@@ -1,8 +1,8 @@
 {
-  "name": "oracle",
+  "name": "sibyl",
   "version": "0.1.0-beta.7",
-  "description": "Oracle — a beautiful, secure desktop app for downloading and chatting with Hugging Face models locally.",
-  "author": "Oracle",
+  "description": "Sibyl — a beautiful, secure desktop app for downloading and chatting with Hugging Face models locally.",
+  "author": "Sibyl",
   "license": "MIT",
   "main": "./out/main/index.js",
   "type": "module",

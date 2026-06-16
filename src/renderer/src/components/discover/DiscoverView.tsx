@@ -21,14 +21,14 @@ export function DiscoverView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-oracle-border/60 px-6 py-4">
-        <h1 className="mb-1 text-xl font-semibold text-oracle-text">Discover models</h1>
-        <p className="mb-4 text-[13px] text-oracle-muted">
+      <div className="border-b border-sibyl-border/60 px-6 py-4">
+        <h1 className="mb-1 text-xl font-semibold text-sibyl-text">Discover models</h1>
+        <p className="mb-4 text-[13px] text-sibyl-muted">
           Browse GGUF chat models from Hugging Face. Everything you download runs locally.
         </p>
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
-            <SearchIcon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-oracle-muted" />
+            <SearchIcon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sibyl-muted" />
             <input
               value={query}
               onChange={(e) => actions.setDiscoverQuery(e.target.value)}
@@ -47,7 +47,7 @@ export function DiscoverView() {
               key={s.key}
               onClick={() => actions.setDiscoverSort(s.key)}
               className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                sort === s.key ? 'bg-oracle-surface-2 text-oracle-text' : 'text-oracle-muted hover:text-oracle-text'
+                sort === s.key ? 'bg-sibyl-surface-2 text-sibyl-text' : 'text-sibyl-muted hover:text-sibyl-text'
               }`}
             >
               {s.label}
@@ -69,7 +69,7 @@ export function DiscoverView() {
             ))}
           </div>
         ) : results.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center text-oracle-muted">
+          <div className="flex h-full flex-col items-center justify-center text-center text-sibyl-muted">
             <SearchIcon size={32} className="mb-3 opacity-40" />
             <p className="text-[14px]">No models found. Try another search.</p>
           </div>

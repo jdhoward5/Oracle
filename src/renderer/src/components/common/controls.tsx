@@ -12,8 +12,8 @@ export function Section({
 }) {
   return (
     <section className="card p-5">
-      <h2 className="text-[15px] font-semibold text-oracle-text">{title}</h2>
-      {desc && <p className="mt-0.5 text-[12.5px] text-oracle-muted">{desc}</p>}
+      <h2 className="text-[15px] font-semibold text-sibyl-text">{title}</h2>
+      {desc && <p className="mt-0.5 text-[12.5px] text-sibyl-muted">{desc}</p>}
       <div className="mt-4 flex flex-col gap-4">{children}</div>
     </section>
   )
@@ -41,8 +41,8 @@ export function Slider({
   return (
     <div className={disabled ? 'opacity-40' : ''}>
       <div className="mb-1.5 flex items-center justify-between">
-        <label className="text-[13px] text-oracle-text">{label}</label>
-        <span className="font-mono text-[12px] text-oracle-accent">{format ? format(value) : value}</span>
+        <label className="text-[13px] text-sibyl-text">{label}</label>
+        <span className="font-mono text-[12px] text-sibyl-accent">{format ? format(value) : value}</span>
       </div>
       <input
         type="range"
@@ -52,7 +52,7 @@ export function Slider({
         value={value}
         disabled={disabled}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="oracle-range w-full"
+        className="sibyl-range w-full"
       />
     </div>
   )
@@ -72,15 +72,15 @@ export function Toggle({
   return (
     <div className="flex items-center justify-between gap-4">
       <div className="min-w-0">
-        <label className="text-[13px] text-oracle-text">{label}</label>
-        {desc && <p className="mt-0.5 text-[12px] text-oracle-muted">{desc}</p>}
+        <label className="text-[13px] text-sibyl-text">{label}</label>
+        {desc && <p className="mt-0.5 text-[12px] text-sibyl-muted">{desc}</p>}
       </div>
       <button
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
-          checked ? 'bg-oracle-accent' : 'bg-oracle-surface-2'
+          checked ? 'bg-sibyl-accent' : 'bg-sibyl-surface-2'
         }`}
       >
         <span

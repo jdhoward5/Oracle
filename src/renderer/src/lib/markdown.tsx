@@ -147,9 +147,9 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
     })
   }
   return (
-    <div className="group relative my-3 overflow-hidden rounded-lg border border-oracle-border bg-[#0a0b12]">
-      <div className="flex items-center justify-between border-b border-oracle-border/70 bg-oracle-surface-2/50 px-3 py-1.5">
-        <span className="font-mono text-[11px] uppercase tracking-wide text-oracle-muted">
+    <div className="group relative my-3 overflow-hidden rounded-lg border border-sibyl-border bg-[#0a0b12]">
+      <div className="flex items-center justify-between border-b border-sibyl-border/70 bg-sibyl-surface-2/50 px-3 py-1.5">
+        <span className="font-mono text-[11px] uppercase tracking-wide text-sibyl-muted">
           {lang || 'code'}
         </span>
         <button onClick={copy} className="btn-ghost h-6 px-1.5 py-0 text-[11px]">
@@ -158,7 +158,7 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
         </button>
       </div>
       <pre className="selectable overflow-x-auto px-3.5 py-3">
-        <code className="font-mono text-[13px] leading-relaxed text-oracle-text">{code}</code>
+        <code className="font-mono text-[13px] leading-relaxed text-sibyl-text">{code}</code>
       </pre>
     </div>
   )
@@ -167,7 +167,7 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
 export function Markdown({ source }: { source: string }) {
   const blocks = parseBlocks(source)
   return (
-    <div className="prose-oracle selectable">
+    <div className="prose-sibyl selectable">
       {blocks.map((b, idx) => {
         const key = `b${idx}`
         switch (b.type) {

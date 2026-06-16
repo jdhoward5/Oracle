@@ -47,6 +47,6 @@ export function levelColor(level: ContextLevel): { text: string; bar: string } {
     case 'warn':
       return { text: 'text-amber-400', bar: 'bg-amber-500' }
     default:
-      return { text: 'text-oracle-muted', bar: 'bg-oracle-accent' }
+      return { text: 'text-sibyl-muted', bar: 'bg-sibyl-accent' }
   }
 }

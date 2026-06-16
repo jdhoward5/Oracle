@@ -11,7 +11,7 @@ release/
 *.tsbuildinfo
 models-cache/
 .smoke-models/
-oracle-smoke*.png
+sibyl-smoke*.png
 exe-icon-check.png
 build-cuda*.log
 dist*.log

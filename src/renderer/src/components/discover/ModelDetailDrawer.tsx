@@ -27,20 +27,20 @@ export function ModelDetailDrawer() {
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={() => actions.closeModelDetail()} />
-      <div className="relative flex h-full w-full max-w-xl animate-fade-in flex-col border-l border-oracle-border bg-oracle-surface shadow-2xl">
+      <div className="relative flex h-full w-full max-w-xl animate-fade-in flex-col border-l border-sibyl-border bg-sibyl-surface shadow-2xl">
         {loading ? (
           <div className="flex flex-1 items-center justify-center">
-            <span className="h-3 w-3 animate-pulse-glow rounded-full bg-oracle-accent" />
+            <span className="h-3 w-3 animate-pulse-glow rounded-full bg-sibyl-accent" />
           </div>
         ) : detail ? (
           <>
-            <div className="flex items-start justify-between gap-3 border-b border-oracle-border/60 p-5">
+            <div className="flex items-start justify-between gap-3 border-b border-sibyl-border/60 p-5">
               <div className="min-w-0">
-                <h2 className="truncate text-lg font-semibold text-oracle-text" title={detail.id}>
+                <h2 className="truncate text-lg font-semibold text-sibyl-text" title={detail.id}>
                   {detail.id.split('/').pop()}
                 </h2>
-                <p className="truncate text-[13px] text-oracle-muted">{detail.id.split('/')[0]}</p>
-                <div className="mt-2 flex items-center gap-4 text-[12px] text-oracle-muted">
+                <p className="truncate text-[13px] text-sibyl-muted">{detail.id.split('/')[0]}</p>
+                <div className="mt-2 flex items-center gap-4 text-[12px] text-sibyl-muted">
                   <span className="flex items-center gap-1">
                     <DownloadIcon size={13} /> {detail.downloads.toLocaleString()}
                   </span>
@@ -55,11 +55,11 @@ export function ModelDetailDrawer() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-5">
-              <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-oracle-muted">
+              <h3 className="mb-3 text-[13px] font-semibold uppercase tracking-wide text-sibyl-muted">
                 Quantizations ({sortedFiles.length})
               </h3>
               {sortedFiles.length === 0 && (
-                <p className="text-[13px] text-oracle-muted">
+                <p className="text-[13px] text-sibyl-muted">
                   No single-file GGUF quantizations found in this repo.
                 </p>
               )}
@@ -71,10 +71,10 @@ export function ModelDetailDrawer() {
 
               {detail.description && (
                 <>
-                  <h3 className="mb-2 mt-6 text-[13px] font-semibold uppercase tracking-wide text-oracle-muted">
+                  <h3 className="mb-2 mt-6 text-[13px] font-semibold uppercase tracking-wide text-sibyl-muted">
                     About
                   </h3>
-                  <p className="selectable whitespace-pre-wrap text-[13px] leading-relaxed text-oracle-muted/90">
+                  <p className="selectable whitespace-pre-wrap text-[13px] leading-relaxed text-sibyl-muted/90">
                     {detail.description.slice(0, 1500)}
                     {detail.description.length > 1500 ? '…' : ''}
                   </p>
@@ -109,21 +109,21 @@ function FileRow({
     <div className="card flex items-center gap-3 p-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[12px] font-semibold text-oracle-text">{file.quant ?? 'GGUF'}</span>
+          <span className="font-mono text-[12px] font-semibold text-sibyl-text">{file.quant ?? 'GGUF'}</span>
           {file.multipart && <span className="chip">multi-part</span>}
         </div>
-        <div className="truncate text-[11px] text-oracle-muted" title={file.rfilename}>
+        <div className="truncate text-[11px] text-sibyl-muted" title={file.rfilename}>
           {file.rfilename}
         </div>
-        {rec && <div className="mt-0.5 text-[11px] text-oracle-accent/90">{rec}</div>}
+        {rec && <div className="mt-0.5 text-[11px] text-sibyl-accent/90">{rec}</div>}
       </div>
-      <span className="shrink-0 text-[12px] text-oracle-muted">{file.size ? formatBytes(file.size) : ''}</span>
+      <span className="shrink-0 text-[12px] text-sibyl-muted">{file.size ? formatBytes(file.size) : ''}</span>
       {isInstalled ? (
         <span className="flex shrink-0 items-center gap-1 text-[12px] text-emerald-300">
           <CheckIcon size={15} /> Installed
         </span>
       ) : busy ? (
-        <span className="shrink-0 text-[12px] text-oracle-accent">Downloading…</span>
+        <span className="shrink-0 text-[12px] text-sibyl-accent">Downloading…</span>
       ) : (
         <button
           onClick={() => actions.startDownload(repoId, file.rfilename)}

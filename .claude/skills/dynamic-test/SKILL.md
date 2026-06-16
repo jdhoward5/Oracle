@@ -1,12 +1,12 @@
 ---
 name: dynamic-test
-description: Dynamically test the Oracle app — run the static gates, boot the real Electron app + GPU engine to verify it loads a model and chats (headless ORACLE_SMOKE E2E), and drive the renderer UI as a user with the Playwright E2E (npm run test:e2e). Use when asked to test, smoke-test, verify, or "run" the app, or to confirm a change works end-to-end (not just unit tests).
+description: Dynamically test the Sibyl app — run the static gates, boot the real Electron app + GPU engine to verify it loads a model and chats (headless SIBYL_SMOKE E2E), and drive the renderer UI as a user with the Playwright E2E (npm run test:e2e). Use when asked to test, smoke-test, verify, or "run" the app, or to confirm a change works end-to-end (not just unit tests).
 allowed-tools: Read, Grep, Glob, Bash, PowerShell
 ---
 
-# Dynamically testing Oracle
+# Dynamically testing Sibyl
 
-Oracle is an Electron app that loads a GGUF model onto the GPU and streams chat.
+Sibyl is an Electron app that loads a GGUF model onto the GPU and streams chat.
 "Testing dynamically" means more than unit tests — it means **booting the real
 app and driving a real generation**. Work outward in three layers; stop at the
 layer that matches the request.
@@ -30,7 +30,7 @@ The vite "dynamically imported … also statically imported" warnings about
 
 This is the highest-value test: it boots Electron, registers a model through the
 real persistence layer, and drives **load → send → stream** across **two**
-conversations through the actual `window.oracle` IPC bridge (the second forces
+conversations through the actual `window.sibyl` IPC bridge (the second forces
 the `setChatHistory` swap path). It screenshots and self-exits: **exit 0 = pass,
 exit 1 = fail**.
 
@@ -42,22 +42,22 @@ fired on `did-finish-load`). **Requires `npm run build` first** (it runs `out/`)
 
    ```bash
    # Installed models live under Electron userData (Roaming on Windows):
-   ls "$APPDATA/oracle/models/"*.gguf 2>/dev/null
+   ls "$APPDATA/sibyl/models/"*.gguf 2>/dev/null
    # …or read the registry:
-   cat "$APPDATA/oracle/models.json"
+   cat "$APPDATA/sibyl/models.json"
    ```
 
 2. Run it, filtering for the signal and capturing the screenshot dir:
 
    ```bash
    OUT=$(mktemp -d)
-   ORACLE_SMOKE=1 \
-   ORACLE_SMOKE_MODEL="C:/path/to/model.gguf" \
-   ORACLE_SMOKE_OUT="$OUT" \
+   SIBYL_SMOKE=1 \
+   SIBYL_SMOKE_MODEL="C:/path/to/model.gguf" \
+   SIBYL_SMOKE_OUT="$OUT" \
    ./node_modules/electron/dist/electron.exe . 2>&1 \
      | grep -iE "smoke|error|fail|cuda|gpu|architecture"
    echo "exit: ${PIPESTATUS[0]}"
-   ls "$OUT"   # → oracle-smoke-chat.png
+   ls "$OUT"   # → sibyl-smoke-chat.png
    ```
 
    A pass prints `[smoke] ✅ IN-APP CHAT PASSED (2 conversations)` and a result
@@ -67,14 +67,14 @@ fired on `did-finish-load`). **Requires `npm run build` first** (it runs `out/`)
    (keep the working tree clean):
 
    ```bash
-   cp "$OUT/oracle-smoke-chat.png" ./.smoke-shot.png   # Read it, then:
+   cp "$OUT/sibyl-smoke-chat.png" ./.smoke-shot.png   # Read it, then:
    rm -f ./.smoke-shot.png && rm -rf "$OUT"
    ```
 
 Tuning knobs:
-- `ORACLE_SMOKE` with **no** `ORACLE_SMOKE_MODEL` → just boots and screenshots
-  `oracle-smoke.png` (renderer-only sanity). Pair with
-  `ORACLE_SMOKE_DELAY=4000` to let `init()` settle on a cold start.
+- `SIBYL_SMOKE` with **no** `SIBYL_SMOKE_MODEL` → just boots and screenshots
+  `sibyl-smoke.png` (renderer-only sanity). Pair with
+  `SIBYL_SMOKE_DELAY=4000` to let `init()` settle on a cold start.
 - The harness drives the engine via IPC, so the renderer's `activeConversationId`
   stays null and the screenshot shows the **empty/ready** state. It does **not**
   click UI (drawers, find, regenerate/export/presets) — those need Layer 3.
@@ -93,7 +93,7 @@ npm run build && npm run test:e2e
 
 It launches the **built** app in an isolated temp `--user-data-dir` seeded with a
 couple of conversations (so it never touches your real data and **needs no
-model/GPU**), then asserts each feature and screenshots to `ORACLE_E2E_OUT`
+model/GPU**), then asserts each feature and screenshots to `SIBYL_E2E_OUT`
 (default: a printed temp dir). **Exit 0 = pass.** A healthy run prints:
 
 ```
@@ -110,7 +110,7 @@ Settings. Generation-dependent flows (send, regenerate, edit-and-resend) are
 Extending it: add seeded conversations to the `conversations` array; select
 renderer elements by visible text / `getByPlaceholder` / `getByTitle` (the UI has
 no test-ids); scope drawer interactions to `page.locator('div.z-40')`; read
-persisted state back via `page.evaluate(() => window.oracle.…)`. Throw to fail
+persisted state back via `page.evaluate(() => window.sibyl.…)`. Throw to fail
 (sets a non-zero exit).
 
 ### Manual / interactive

@@ -1,10 +1,10 @@
-# Oracle
+# Sibyl
 
 A beautiful, secure **Windows desktop app** for downloading chat/text models from
 **Hugging Face** and talking to them — entirely **on your own machine**. No cloud,
 no telemetry, no data leaving your computer.
 
-![Oracle](docs/screenshot.png)
+![Sibyl](docs/screenshot.png)
 
 ## Features
 
@@ -52,7 +52,7 @@ the bridge can never drift.
   Vulkan-capable GPU. node-llama-cpp ships prebuilt CUDA/Vulkan binaries — no
   CUDA Toolkit, Visual Studio or CMake required. The bundled CUDA backend runs
   on all modern NVIDIA GPUs including **Blackwell / RTX 50-series** (verified on
-  an RTX 5090). Oracle falls back to Vulkan, then CPU, automatically.
+  an RTX 5090). Sibyl falls back to Vulkan, then CPU, automatically.
 
 ## Getting started
 
@@ -102,7 +102,7 @@ pre-release with the `.exe` attached (needs an authenticated `gh` CLI). Pass
 ## Security notes
 
 - The renderer runs with `contextIsolation: true` and `nodeIntegration: false`.
-  Its only capability is the typed `window.oracle` bridge — every call is an
+  Its only capability is the typed `window.sibyl` bridge — every call is an
   `ipcRenderer.invoke` to an allow-listed channel; raw `ipcRenderer`/`fs`/`net`
   are never exposed.
 - A strict Content-Security-Policy is applied both via response headers (main)
@@ -111,7 +111,7 @@ pre-release with the `.exe` attached (needs an authenticated `gh` CLI). Pass
 - Conversations and models are stored under Electron's `userData`. The optional
   Hugging Face token is encrypted with `safeStorage` (OS keychain) and never
   written in plaintext.
-- Oracle sends **no telemetry**. Inference is fully local.
+- Sibyl sends **no telemetry**. Inference is fully local.
 
 ## License
 

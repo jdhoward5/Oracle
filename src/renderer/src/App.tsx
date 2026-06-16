@@ -18,14 +18,14 @@ export default function App() {
   }, [])
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-oracle-bg text-oracle-text">
+    <div className="flex h-screen flex-col overflow-hidden bg-sibyl-bg text-sibyl-text">
       <TitleBar />
       <div className="flex min-h-0 flex-1">
         <Rail />
         <main className="flex min-w-0 flex-1 flex-col">
           {!ready ? (
             <div className="flex flex-1 items-center justify-center">
-              <span className="h-3 w-3 animate-pulse-glow rounded-full bg-oracle-accent" />
+              <span className="h-3 w-3 animate-pulse-glow rounded-full bg-sibyl-accent" />
             </div>
           ) : view === 'chat' ? (
             <ChatView />

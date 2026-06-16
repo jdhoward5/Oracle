@@ -1,4 +1,4 @@
-# Generates a branded multi-resolution Oracle app icon (build/icon.ico) using
+# Generates a branded multi-resolution Sibyl app icon (build/icon.ico) using
 # GDI+ — no external image tooling required. The mark mirrors the in-app logo:
 # a 4-point "spark" on a violet→blue rounded-square gradient.
 #

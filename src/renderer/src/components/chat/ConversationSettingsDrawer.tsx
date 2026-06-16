@@ -49,11 +49,11 @@ export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose} />
-      <div className="relative flex h-full w-full max-w-md animate-fade-in flex-col border-l border-oracle-border bg-oracle-surface shadow-2xl">
-        <div className="flex items-center justify-between gap-3 border-b border-oracle-border/60 p-5">
+      <div className="relative flex h-full w-full max-w-md animate-fade-in flex-col border-l border-sibyl-border bg-sibyl-surface shadow-2xl">
+        <div className="flex items-center justify-between gap-3 border-b border-sibyl-border/60 p-5">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-oracle-text">Conversation settings</h2>
-            <p className="truncate text-[12.5px] text-oracle-muted" title={conversation.title}>
+            <h2 className="text-lg font-semibold text-sibyl-text">Conversation settings</h2>
+            <p className="truncate text-[12.5px] text-sibyl-muted" title={conversation.title}>
               {conversation.title}
             </p>
           </div>
@@ -67,7 +67,7 @@ export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
             {/* System prompt override */}
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-[13px] font-medium text-oracle-text">System prompt</label>
+                <label className="text-[13px] font-medium text-sibyl-text">System prompt</label>
                 {settings.promptPresets.length > 0 && (
                   <select
                     value=""
@@ -138,7 +138,7 @@ export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
 
             {/* Export */}
             <div>
-              <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-oracle-muted">Export</h3>
+              <h3 className="mb-2 text-[13px] font-semibold uppercase tracking-wide text-sibyl-muted">Export</h3>
               <div className="flex gap-2">
                 {(['markdown', 'json', 'text'] as const).map((fmt) => (
                   <button
@@ -154,7 +154,7 @@ export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-2 border-t border-oracle-border/60 p-4">
+        <div className="flex items-center justify-between gap-2 border-t border-sibyl-border/60 p-4">
           <button onClick={clearAll} className="btn-ghost px-3 py-2 text-[12.5px]">
             Reset to global
           </button>

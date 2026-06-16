@@ -255,7 +255,7 @@ export interface AppSettings {
   promptPresets: SystemPromptPreset[]
   /** Reusable named generation-parameter bundles (built-ins + user-defined). */
   generationProfiles: GenerationProfile[]
-  telemetry: false // Oracle never sends telemetry.
+  telemetry: false // Sibyl never sends telemetry.
 }
 
 export interface EngineStatus {

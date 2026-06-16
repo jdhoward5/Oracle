@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Cut an Oracle release locally, by hand, on the GPU dev box.
+# Cut an Sibyl release locally, by hand, on the GPU dev box.
 #
 # We deliberately do NOT use a self-hosted GitHub Actions runner: that would
 # leave a GitHub-triggered build daemon running on a machine that holds your
@@ -60,7 +60,7 @@ if ($SkipSmoke) {
 Write-Host "==> Building installer (electron-builder NSIS)"
 npm run dist
 
-$installer = "release/$version/Oracle-$version-setup.exe"
+$installer = "release/$version/Sibyl-$version-setup.exe"
 if (-not (Test-Path $installer)) {
   throw "Expected installer not found at $installer"
 }
@@ -90,11 +90,11 @@ if ($DryRun) {
 # Tag this commit (idempotent) and publish a pre-release with the installer +
 # update metadata attached.
 if (-not (git tag --list $tag)) {
-  git tag -a $tag -m "Oracle $tag"
+  git tag -a $tag -m "Sibyl $tag"
 }
 git push origin $tag
 
-gh release create $tag @assets --prerelease --generate-notes --title "Oracle $tag"
+gh release create $tag @assets --prerelease --generate-notes --title "Sibyl $tag"
 Write-Host "==> Published pre-release $tag" -ForegroundColor Green
 
 # Auto-prune: keep only the $KeepReleases most recent releases online; delete the

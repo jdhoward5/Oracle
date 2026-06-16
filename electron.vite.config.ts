@@ -23,7 +23,7 @@ const PROD_CSP = [
 
 function cspPlugin(): Plugin {
   return {
-    name: 'oracle-csp',
+    name: 'sibyl-csp',
     transformIndexHtml(html, ctx) {
       if (ctx.server) return html // dev server: no meta CSP
       return html.replace(

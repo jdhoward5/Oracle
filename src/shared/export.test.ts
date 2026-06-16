@@ -27,15 +27,15 @@ describe('conversationToMarkdown', () => {
     expect(md).toContain('# My Chat')
     expect(md).toContain('**You:**')
     expect(md).toContain('Hello there')
-    expect(md).toContain('**Oracle:**')
+    expect(md).toContain('**Sibyl:**')
     expect(md).toContain('Hi! How can I help?')
   })
   it('skips system turns and empty assistant placeholders', () => {
     const md = conversationToMarkdown(conv)
     expect(md).not.toContain('be nice')
     expect(md).not.toContain('**System:**')
-    // Only one Oracle block (the empty placeholder is dropped).
-    expect(md.match(/\*\*Oracle:\*\*/g)).toHaveLength(1)
+    // Only one Sibyl block (the empty placeholder is dropped).
+    expect(md.match(/\*\*Sibyl:\*\*/g)).toHaveLength(1)
   })
   it('includes a compaction summary when present', () => {
     const md = conversationToMarkdown({
@@ -58,7 +58,7 @@ describe('conversationToText', () => {
     const txt = conversationToText(conv)
     expect(txt).toContain('My Chat')
     expect(txt).toContain('You:')
-    expect(txt).toContain('Oracle:')
+    expect(txt).toContain('Sibyl:')
     expect(txt).not.toContain('**')
   })
 })

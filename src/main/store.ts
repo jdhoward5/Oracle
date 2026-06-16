@@ -85,7 +85,7 @@ function defaultSettings(): AppSettings {
       gpuLayers: -1,
       contextSize: 8192,
       systemPrompt:
-        'You are Oracle, a helpful, knowledgeable and concise AI assistant running locally on the user’s machine.'
+        'You are Sibyl, a helpful, knowledgeable and concise AI assistant running locally on the user’s machine.'
     },
     context: { ...DEFAULT_CONTEXT_SETTINGS },
     theme: 'dark',

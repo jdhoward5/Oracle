@@ -24,11 +24,11 @@ function EmptyState() {
   const modelCount = useStore((s) => s.installedModels.length)
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
-      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-oracle-accent to-oracle-accent-2 text-white shadow-2xl shadow-oracle-accent/30">
+      <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-sibyl-accent to-sibyl-accent-2 text-white shadow-2xl shadow-sibyl-accent/30">
         <SparkIcon size={34} />
       </div>
-      <h2 className="mb-2 text-2xl font-semibold text-oracle-text">Ask the Oracle</h2>
-      <p className="mb-6 max-w-md text-[14px] leading-relaxed text-oracle-muted">
+      <h2 className="mb-2 text-2xl font-semibold text-sibyl-text">Ask the Sibyl</h2>
+      <p className="mb-6 max-w-md text-[14px] leading-relaxed text-sibyl-muted">
         {hasModel
           ? 'Your model is loaded and ready. Type a message below to begin a private, on-device conversation.'
           : modelCount > 0
@@ -77,10 +77,10 @@ function CompactionDivider({ conversation }: { conversation: Conversation }) {
   if (!c) return null
   return (
     <div
-      className="my-1 flex items-center gap-2 text-[11.5px] text-oracle-muted/80"
+      className="my-1 flex items-center gap-2 text-[11.5px] text-sibyl-muted/80"
       title={c.summary}
     >
-      <div className="h-px flex-1 bg-oracle-border/60" />
+      <div className="h-px flex-1 bg-sibyl-border/60" />
       <CompressIcon size={12} />
       <span>
         {c.foldedCount} earlier {c.foldedCount === 1 ? 'message' : 'messages'} summarized
@@ -88,7 +88,7 @@ function CompactionDivider({ conversation }: { conversation: Conversation }) {
           <> · {formatTokens(c.originalTokens)} → {formatTokens(c.summaryTokens)} tokens</>
         )}
       </span>
-      <div className="h-px flex-1 bg-oracle-border/60" />
+      <div className="h-px flex-1 bg-sibyl-border/60" />
     </div>
   )
 }
@@ -156,13 +156,13 @@ export function ChatView() {
     <div className="flex min-h-0 flex-1">
       <ConversationList />
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-oracle-border/60 px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-sibyl-border/60 px-4">
           <ModelPicker />
           <div className="flex min-w-0 items-center gap-3">
             <ContextMeter />
             {conversation && (
               <>
-                <span className="hidden truncate text-[13px] font-medium text-oracle-muted lg:inline">
+                <span className="hidden truncate text-[13px] font-medium text-sibyl-muted lg:inline">
                   {conversation.title}
                 </span>
                 <button
@@ -180,9 +180,9 @@ export function ChatView() {
                   className="btn-ghost relative h-8 w-8 shrink-0 p-0"
                   title="Conversation settings"
                 >
-                  <SlidersIcon size={16} className={conversation.overrides ? 'text-oracle-accent' : ''} />
+                  <SlidersIcon size={16} className={conversation.overrides ? 'text-sibyl-accent' : ''} />
                   {conversation.overrides && (
-                    <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-oracle-accent" />
+                    <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-sibyl-accent" />
                   )}
                 </button>
               </>
@@ -191,8 +191,8 @@ export function ChatView() {
         </div>
 
         {findOpen && conversation && (
-          <div className="flex shrink-0 items-center gap-2 border-b border-oracle-border/60 bg-oracle-surface/40 px-4 py-2">
-            <SearchIcon size={14} className="shrink-0 text-oracle-muted" />
+          <div className="flex shrink-0 items-center gap-2 border-b border-sibyl-border/60 bg-sibyl-surface/40 px-4 py-2">
+            <SearchIcon size={14} className="shrink-0 text-sibyl-muted" />
             <input
               ref={findInputRef}
               value={findQuery}
@@ -211,7 +211,7 @@ export function ChatView() {
               placeholder="Find in conversation…"
               className="input h-7 flex-1 text-[12.5px]"
             />
-            <span className="shrink-0 font-mono text-[11.5px] text-oracle-muted">
+            <span className="shrink-0 font-mono text-[11.5px] text-sibyl-muted">
               {matchIds.length ? `${safeIdx + 1}/${matchIds.length}` : '0/0'}
             </span>
             <button

@@ -139,7 +139,7 @@ function updateConversation(id: string, fn: (c: Conversation) => Conversation): 
 }
 
 function persist(conversation: Conversation): void {
-  void window.oracle.conversations.save(conversation)
+  void window.sibyl.conversations.save(conversation)
 }
 
 /**
@@ -175,9 +175,9 @@ async function runTurn(
   updateConversation(conv.id, () => updated)
   // Persist the truncated history and invalidate before sending so the engine
   // rebuilds its session from this new state rather than the stale KV cache.
-  await window.oracle.conversations.save(updated)
-  await window.oracle.chat.invalidateSession(conv.id)
-  const res = await window.oracle.chat.send({
+  await window.sibyl.conversations.save(updated)
+  await window.sibyl.chat.invalidateSession(conv.id)
+  const res = await window.sibyl.chat.send({
     conversationId: conv.id,
     message: userText,
     assistantMessageId: assistantId
@@ -202,13 +202,13 @@ export const actions = {
 
     const [settingsRes, infoRes, modelsRes, convRes, statusRes, dlRes, updateRes] =
       await Promise.all([
-        window.oracle.settings.get(),
-        window.oracle.app.info(),
-        window.oracle.models.list(),
-        window.oracle.conversations.list(),
-        window.oracle.engine.status(),
-        window.oracle.downloads.list(),
-        window.oracle.update.status()
+        window.sibyl.settings.get(),
+        window.sibyl.app.info(),
+        window.sibyl.models.list(),
+        window.sibyl.conversations.list(),
+        window.sibyl.engine.status(),
+        window.sibyl.downloads.list(),
+        window.sibyl.update.status()
       ])
 
     const downloads: Record<string, DownloadProgress> = {}
@@ -232,7 +232,7 @@ export const actions = {
     void actions.refreshContextUsage()
 
     // Wire live event streams.
-    window.oracle.update.onEvent((s) => {
+    window.sibyl.update.onEvent((s) => {
       const prev = state.update
       setState({ update: s })
       // Announce a ready-to-install update once (the Settings UI shows the button).
@@ -240,14 +240,14 @@ export const actions = {
         toast(`Update ${s.version ?? ''} downloaded — restart to install`.trim(), 'success')
       }
     })
-    window.oracle.engine.onStatus((s) => setState({ engine: s }))
-    window.oracle.context.onUsage((u) => {
+    window.sibyl.engine.onStatus((s) => setState({ engine: s }))
+    window.sibyl.context.onUsage((u) => {
       // Only adopt snapshots for the conversation currently on screen; the engine
       // also broadcasts a null-conversation snapshot on load that must not clobber
       // an active conversation's real fill.
       if (u.conversationId === state.activeConversationId) setState({ contextUsage: u })
     })
-    window.oracle.downloads.onProgress((p) => {
+    window.sibyl.downloads.onProgress((p) => {
       setState((st) => ({ downloads: { ...st.downloads, [p.id]: p } }))
       if (p.status === 'completed') {
         toast(`Downloaded ${p.filename}`, 'success')
@@ -256,7 +256,7 @@ export const actions = {
         toast(`Download failed: ${p.error ?? p.filename}`, 'error')
       }
     })
-    window.oracle.chat.onEvent((e) => {
+    window.sibyl.chat.onEvent((e) => {
       if (e.type === 'token') {
         // Append the chunk and advance the live tok/s counter in one update.
         setState((s) => {
@@ -310,7 +310,7 @@ export const actions = {
   },
 
   async refreshModels(): Promise<void> {
-    const res = await window.oracle.models.list()
+    const res = await window.sibyl.models.list()
     if (res.ok) setState({ installedModels: res.data ?? [] })
   },
 
@@ -320,7 +320,7 @@ export const actions = {
       setState({ contextUsage: null })
       return
     }
-    const res = await window.oracle.context.usage(state.activeConversationId)
+    const res = await window.sibyl.context.usage(state.activeConversationId)
     if (res.ok && res.data) setState({ contextUsage: res.data })
   },
 
@@ -333,7 +333,7 @@ export const actions = {
     if (!id) return false
     if (state.compacting) return false
     setState({ compacting: true })
-    const res = await window.oracle.chat.compact(id)
+    const res = await window.sibyl.chat.compact(id)
     setState({ compacting: false })
     if (!res.ok || !res.data) {
       // Auto-compaction is best-effort (e.g. nothing foldable yet) — stay quiet.
@@ -377,7 +377,7 @@ export const actions = {
   },
 
   async deleteConversation(id: string): Promise<void> {
-    await window.oracle.conversations.delete(id)
+    await window.sibyl.conversations.delete(id)
     setState((s) => {
       const conversations = s.conversations.filter((c) => c.id !== id)
       return {
@@ -446,9 +446,9 @@ export const actions = {
       return saved
     })
     // Persist the user turn before generation so the engine can rebuild history.
-    if (saved) await window.oracle.conversations.save(saved)
+    if (saved) await window.sibyl.conversations.save(saved)
 
-    const res = await window.oracle.chat.send({
+    const res = await window.sibyl.chat.send({
       conversationId,
       message: content,
       assistantMessageId: assistantMsg.id
@@ -457,7 +457,7 @@ export const actions = {
   },
 
   abortGeneration(): void {
-    if (state.activeConversationId) void window.oracle.chat.abort(state.activeConversationId)
+    if (state.activeConversationId) void window.sibyl.chat.abort(state.activeConversationId)
   },
 
   /** Remove a single message from the active conversation. */
@@ -475,7 +475,7 @@ export const actions = {
     updateConversation(conv.id, () => updated)
     persist(updated)
     // History changed under the engine's warm session — force a rebuild next turn.
-    void window.oracle.chat.invalidateSession(conv.id)
+    void window.sibyl.chat.invalidateSession(conv.id)
     void actions.refreshContextUsage()
   },
 
@@ -580,13 +580,13 @@ export const actions = {
     const updated = { ...conv, overrides: next, updatedAt: now() }
     updateConversation(id, () => updated)
     persist(updated)
-    if (prevPrompt !== nextPrompt) await window.oracle.chat.invalidateSession(id)
+    if (prevPrompt !== nextPrompt) await window.sibyl.chat.invalidateSession(id)
     void actions.refreshContextUsage()
   },
 
   /** Render the conversation and prompt the user to save it to a file. */
   async exportConversation(id: string, format: ExportFormat): Promise<void> {
-    const res = await window.oracle.conversations.export(id, format)
+    const res = await window.sibyl.conversations.export(id, format)
     if (!res.ok) {
       toast(res.error ?? 'Export failed', 'error')
       return
@@ -596,7 +596,7 @@ export const actions = {
 
   // --- models -------------------------------------------------------------
   async loadModel(id: string): Promise<void> {
-    const res = await window.oracle.engine.load(id)
+    const res = await window.sibyl.engine.load(id)
     if (res.ok && res.data) {
       setState({ engine: res.data })
       const model = state.installedModels.find((m) => m.id === id)
@@ -608,29 +608,29 @@ export const actions = {
   },
 
   async unloadModel(): Promise<void> {
-    await window.oracle.engine.unload()
+    await window.sibyl.engine.unload()
     setState({ contextUsage: null })
   },
 
   async deleteModel(id: string): Promise<void> {
-    await window.oracle.models.delete(id)
+    await window.sibyl.models.delete(id)
     await actions.refreshModels()
     toast('Model deleted', 'info')
   },
 
   revealModel(id: string): void {
-    void window.oracle.models.reveal(id)
+    void window.sibyl.models.reveal(id)
   },
 
   // --- downloads ----------------------------------------------------------
   async startDownload(repoId: string, filename: string): Promise<void> {
-    const res = await window.oracle.downloads.start(repoId, filename)
+    const res = await window.sibyl.downloads.start(repoId, filename)
     if (res.ok) toast(`Started download: ${filename}`, 'info')
     else toast(res.error ?? 'Download failed to start', 'error')
   },
 
   cancelDownload(id: string): void {
-    void window.oracle.downloads.cancel(id)
+    void window.sibyl.downloads.cancel(id)
   },
 
   // --- discover -----------------------------------------------------------
@@ -646,7 +646,7 @@ export const actions = {
   async search(): Promise<void> {
     const { query, sort } = state.discover
     setState((s) => ({ discover: { ...s.discover, loading: true, error: null } }))
-    const res = await window.oracle.hf.search(query, sort)
+    const res = await window.sibyl.hf.search(query, sort)
     setState((s) => ({
       discover: {
         ...s.discover,
@@ -659,7 +659,7 @@ export const actions = {
 
   async openModelDetail(repoId: string): Promise<void> {
     setState((s) => ({ discover: { ...s.discover, detailLoading: true, selected: null } }))
-    const res = await window.oracle.hf.modelDetail(repoId)
+    const res = await window.sibyl.hf.modelDetail(repoId)
     setState((s) => ({
       discover: {
         ...s.discover,
@@ -676,7 +676,7 @@ export const actions = {
 
   // --- settings -----------------------------------------------------------
   async updateSettings(patch: Partial<AppSettings>): Promise<void> {
-    const res = await window.oracle.settings.set(patch)
+    const res = await window.sibyl.settings.set(patch)
     if (res.ok && res.data) {
       setState({ settings: res.data })
       if (patch.theme) document.documentElement.classList.toggle('light', patch.theme === 'light')
@@ -687,19 +687,19 @@ export const actions = {
 
   // --- auto-update --------------------------------------------------------
   async checkForUpdate(): Promise<void> {
-    const res = await window.oracle.update.check()
+    const res = await window.sibyl.update.check()
     if (res.ok && res.data) setState({ update: res.data })
     else if (!res.ok) toast(res.error ?? 'Update check failed', 'error')
   },
 
   async downloadUpdate(): Promise<void> {
-    const res = await window.oracle.update.download()
+    const res = await window.sibyl.update.download()
     if (!res.ok) toast(res.error ?? 'Update download failed', 'error')
   },
 
   async installUpdate(): Promise<void> {
     // Quits and relaunches into the installer; nothing to handle on success.
-    const res = await window.oracle.update.install()
+    const res = await window.sibyl.update.install()
     if (!res.ok) toast(res.error ?? 'Failed to start the installer', 'error')
   },
 

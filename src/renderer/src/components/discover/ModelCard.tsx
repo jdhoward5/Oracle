@@ -12,13 +12,13 @@ export function ModelCard({ model, onClick }: { model: HFModelSummary; onClick: 
   return (
     <button
       onClick={onClick}
-      className="card group flex flex-col gap-3 p-4 text-left transition-all duration-150 hover:border-oracle-accent/50 hover:bg-oracle-surface-2"
+      className="card group flex flex-col gap-3 p-4 text-left transition-all duration-150 hover:border-sibyl-accent/50 hover:bg-sibyl-surface-2"
     >
       <div className="min-w-0">
-        <div className="truncate text-[14px] font-semibold text-oracle-text group-hover:text-white" title={name}>
+        <div className="truncate text-[14px] font-semibold text-sibyl-text group-hover:text-white" title={name}>
           {name}
         </div>
-        <div className="truncate text-[12px] text-oracle-muted">{author}</div>
+        <div className="truncate text-[12px] text-sibyl-muted">{author}</div>
       </div>
       <div className="flex flex-wrap gap-1.5">
         {model.gated && <span className="chip border border-amber-500/30 text-amber-300/90">gated</span>}
@@ -31,7 +31,7 @@ export function ModelCard({ model, onClick }: { model: HFModelSummary; onClick: 
             </span>
           ))}
       </div>
-      <div className="mt-auto flex items-center gap-4 text-[11.5px] text-oracle-muted">
+      <div className="mt-auto flex items-center gap-4 text-[11.5px] text-sibyl-muted">
         <span className="flex items-center gap-1">
           <DownloadIcon size={13} /> {compact(model.downloads)}
         </span>

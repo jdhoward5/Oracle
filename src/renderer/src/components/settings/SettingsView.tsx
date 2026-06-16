@@ -26,9 +26,9 @@ function PromptPresetsSection({ settings }: { settings: AppSettings }) {
       title="Prompt presets"
       desc="Save the current system prompt as a reusable preset, then apply it here or per-conversation."
     >
-      {presets.length === 0 && <p className="text-[12.5px] text-oracle-muted">No presets yet.</p>}
+      {presets.length === 0 && <p className="text-[12.5px] text-sibyl-muted">No presets yet.</p>}
       {presets.map((p) => (
-        <div key={p.id} className="flex items-center gap-2 rounded-lg border border-oracle-border/60 px-3 py-2">
+        <div key={p.id} className="flex items-center gap-2 rounded-lg border border-sibyl-border/60 px-3 py-2">
           {editingId === p.id ? (
             <input
               autoFocus
@@ -46,8 +46,8 @@ function PromptPresetsSection({ settings }: { settings: AppSettings }) {
             />
           ) : (
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] text-oracle-text">{p.name}</div>
-              <div className="truncate text-[11px] text-oracle-muted" title={p.prompt}>
+              <div className="truncate text-[13px] text-sibyl-text">{p.name}</div>
+              <div className="truncate text-[11px] text-sibyl-muted" title={p.prompt}>
                 {p.prompt}
               </div>
             </div>
@@ -124,7 +124,7 @@ function GenerationProfilesSection({ settings }: { settings: AppSettings }) {
       desc="Named sampling presets. Apply one to the global parameters, or per-conversation."
     >
       {profiles.map((p) => (
-        <div key={p.id} className="flex items-center gap-2 rounded-lg border border-oracle-border/60 px-3 py-2">
+        <div key={p.id} className="flex items-center gap-2 rounded-lg border border-sibyl-border/60 px-3 py-2">
           {editingId === p.id ? (
             <input
               autoFocus
@@ -142,8 +142,8 @@ function GenerationProfilesSection({ settings }: { settings: AppSettings }) {
             />
           ) : (
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] text-oracle-text">{p.name}</div>
-              <div className="truncate font-mono text-[11px] text-oracle-muted">
+              <div className="truncate text-[13px] text-sibyl-text">{p.name}</div>
+              <div className="truncate font-mono text-[11px] text-sibyl-muted">
                 temp {p.options.temperature} · top-p {p.options.topP} · {p.options.maxTokens} tok
               </div>
             </div>
@@ -210,11 +210,11 @@ function UpdatesSection() {
   const busy = state === 'checking' || state === 'downloading'
 
   return (
-    <Section title="Updates" desc="Oracle checks GitHub for new releases on launch. Downloads are manual.">
+    <Section title="Updates" desc="Sibyl checks GitHub for new releases on launch. Downloads are manual.">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[13px] text-oracle-text">Current version</p>
-          <p className="font-mono text-[11px] text-oracle-muted">{currentVersion}</p>
+          <p className="text-[13px] text-sibyl-text">Current version</p>
+          <p className="font-mono text-[11px] text-sibyl-muted">{currentVersion}</p>
         </div>
         {state !== 'available' && state !== 'downloaded' && (
           <button
@@ -228,11 +228,11 @@ function UpdatesSection() {
       </div>
 
       {state === 'not-available' && (
-        <p className="text-[12.5px] text-oracle-muted">You’re running the latest version.</p>
+        <p className="text-[12.5px] text-sibyl-muted">You’re running the latest version.</p>
       )}
 
       {state === 'dev-disabled' && (
-        <p className="text-[12.5px] text-oracle-muted">
+        <p className="text-[12.5px] text-sibyl-muted">
           Updates are only available in the installed app.
         </p>
       )}
@@ -242,9 +242,9 @@ function UpdatesSection() {
       )}
 
       {state === 'available' && (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-oracle-accent/40 bg-oracle-accent/10 px-3 py-2.5">
-          <p className="text-[13px] text-oracle-text">
-            Update available: <span className="font-mono text-oracle-glow">{update?.version}</span>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-sibyl-accent/40 bg-sibyl-accent/10 px-3 py-2.5">
+          <p className="text-[13px] text-sibyl-text">
+            Update available: <span className="font-mono text-sibyl-glow">{update?.version}</span>
           </p>
           <button
             onClick={() => void actions.downloadUpdate()}
@@ -257,16 +257,16 @@ function UpdatesSection() {
 
       {state === 'downloading' && (
         <div className="flex flex-col gap-1.5">
-          <div className="flex items-center justify-between text-[12px] text-oracle-muted">
+          <div className="flex items-center justify-between text-[12px] text-sibyl-muted">
             <span>Downloading {update?.version ?? 'update'}…</span>
             <span className="font-mono">
               {Math.round(update?.percent ?? 0)}%
               {update?.bytesPerSecond ? ` · ${formatSpeed(update.bytesPerSecond)}` : ''}
             </span>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-oracle-surface-2">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-sibyl-surface-2">
             <div
-              className="h-full rounded-full bg-oracle-accent transition-[width]"
+              className="h-full rounded-full bg-sibyl-accent transition-[width]"
               style={{ width: `${Math.round(update?.percent ?? 0)}%` }}
             />
           </div>
@@ -274,9 +274,9 @@ function UpdatesSection() {
       )}
 
       {state === 'downloaded' && (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-oracle-accent/40 bg-oracle-accent/10 px-3 py-2.5">
-          <p className="text-[13px] text-oracle-text">
-            <span className="font-mono text-oracle-glow">{update?.version}</span> is ready to install.
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-sibyl-accent/40 bg-sibyl-accent/10 px-3 py-2.5">
+          <p className="text-[13px] text-sibyl-text">
+            <span className="font-mono text-sibyl-glow">{update?.version}</span> is ready to install.
           </p>
           <button
             onClick={() => void actions.installUpdate()}
@@ -314,7 +314,7 @@ export function SettingsView() {
   return (
     <div className="flex-1 overflow-y-auto">
       <div className="mx-auto max-w-2xl px-6 py-6">
-        <h1 className="mb-5 text-xl font-semibold text-oracle-text">Settings</h1>
+        <h1 className="mb-5 text-xl font-semibold text-sibyl-text">Settings</h1>
         <div className="flex flex-col gap-4">
           <Section title="Inference backend" desc="How models are accelerated. Changes apply when you next load a model.">
             <div className="flex gap-2">
@@ -324,8 +324,8 @@ export function SettingsView() {
                   onClick={() => update({ gpu: o.value })}
                   className={`flex-1 rounded-lg border px-3 py-2 text-[13px] font-medium transition-colors ${
                     settings.gpu === o.value
-                      ? 'border-oracle-accent/60 bg-oracle-accent/15 text-oracle-text'
-                      : 'border-oracle-border text-oracle-muted hover:text-oracle-text'
+                      ? 'border-sibyl-accent/60 bg-sibyl-accent/15 text-sibyl-text'
+                      : 'border-sibyl-border text-sibyl-muted hover:text-sibyl-text'
                   }`}
                 >
                   {o.label}
@@ -333,9 +333,9 @@ export function SettingsView() {
               ))}
             </div>
             {engine.gpuType && (
-              <p className="text-[12px] text-oracle-muted">
+              <p className="text-[12px] text-sibyl-muted">
                 Active backend:{' '}
-                <span className="text-oracle-glow">{String(engine.gpuType).toUpperCase()}</span>
+                <span className="text-sibyl-glow">{String(engine.gpuType).toUpperCase()}</span>
               </p>
             )}
           </Section>
@@ -360,7 +360,7 @@ export function SettingsView() {
               format={(v) => (v < 0 ? 'Auto (max)' : String(v))}
             />
             <div>
-              <label className="mb-1.5 block text-[13px] text-oracle-text">System prompt</label>
+              <label className="mb-1.5 block text-[13px] text-sibyl-text">System prompt</label>
               <textarea
                 value={load.systemPrompt}
                 onChange={(e) => update({ load: { ...load, systemPrompt: e.target.value } })}
@@ -372,7 +372,7 @@ export function SettingsView() {
 
           <Section
             title="Context management"
-            desc="How Oracle keeps long chats inside the model's context window."
+            desc="How Sibyl keeps long chats inside the model's context window."
           >
             <Toggle
               label="Auto-compact"
@@ -423,7 +423,7 @@ export function SettingsView() {
             <Slider label="Max response tokens" value={gen.maxTokens} min={256} max={8192} step={256}
               onChange={(v) => update({ generation: { ...gen, maxTokens: v } })} />
             <div>
-              <label className="mb-1.5 block text-[13px] text-oracle-text">Stop sequences</label>
+              <label className="mb-1.5 block text-[13px] text-sibyl-text">Stop sequences</label>
               <textarea
                 value={(gen.stopSequences ?? []).join('\n')}
                 onChange={(e) =>
@@ -460,7 +460,7 @@ export function SettingsView() {
             {appInfo && !appInfo.secureStorageAvailable && (
               <p className="text-[12px] text-amber-400/90">
                 Secure storage (OS keychain) is unavailable on this system, so a token can’t be
-                saved — it would not persist after you restart Oracle.
+                saved — it would not persist after you restart Sibyl.
               </p>
             )}
             <div className="flex gap-2">
@@ -508,8 +508,8 @@ export function SettingsView() {
                   onClick={() => update({ theme: t })}
                   className={`flex-1 rounded-lg border px-3 py-2 text-[13px] font-medium capitalize transition-colors ${
                     settings.theme === t
-                      ? 'border-oracle-accent/60 bg-oracle-accent/15 text-oracle-text'
-                      : 'border-oracle-border text-oracle-muted hover:text-oracle-text'
+                      ? 'border-sibyl-accent/60 bg-sibyl-accent/15 text-sibyl-text'
+                      : 'border-sibyl-border text-sibyl-muted hover:text-sibyl-text'
                   }`}
                 >
                   {t}
@@ -521,8 +521,8 @@ export function SettingsView() {
           <Section title="Storage">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-[13px] text-oracle-text">Models directory</p>
-                <p className="truncate font-mono text-[11px] text-oracle-muted" title={settings.modelsDir}>
+                <p className="text-[13px] text-sibyl-text">Models directory</p>
+                <p className="truncate font-mono text-[11px] text-sibyl-muted" title={settings.modelsDir}>
                   {settings.modelsDir}
                 </p>
               </div>
@@ -532,18 +532,18 @@ export function SettingsView() {
           <UpdatesSection />
 
           <Section title="About">
-            <div className="grid grid-cols-2 gap-y-1.5 text-[12px] text-oracle-muted">
-              <span>Oracle version</span>
-              <span className="text-oracle-text">{appInfo?.version}</span>
+            <div className="grid grid-cols-2 gap-y-1.5 text-[12px] text-sibyl-muted">
+              <span>Sibyl version</span>
+              <span className="text-sibyl-text">{appInfo?.version}</span>
               <span>Electron</span>
-              <span className="text-oracle-text">{appInfo?.electron}</span>
+              <span className="text-sibyl-text">{appInfo?.electron}</span>
               <span>Node</span>
-              <span className="text-oracle-text">{appInfo?.node}</span>
+              <span className="text-sibyl-text">{appInfo?.node}</span>
               <span>Platform</span>
-              <span className="text-oracle-text">{appInfo?.platform}</span>
+              <span className="text-sibyl-text">{appInfo?.platform}</span>
             </div>
-            <p className="mt-2 text-[12px] leading-relaxed text-oracle-muted/80">
-              Oracle runs all inference locally and never transmits your conversations. Model downloads
+            <p className="mt-2 text-[12px] leading-relaxed text-sibyl-muted/80">
+              Sibyl runs all inference locally and never transmits your conversations. Model downloads
               are fetched directly from Hugging Face over TLS.
             </p>
           </Section>

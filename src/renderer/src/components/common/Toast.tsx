@@ -10,7 +10,7 @@ export function Toast() {
       ? 'border-red-500/40 bg-red-500/10 text-red-200'
       : toast.kind === 'success'
         ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-        : 'border-oracle-border bg-oracle-surface-2 text-oracle-text'
+        : 'border-sibyl-border bg-sibyl-surface-2 text-sibyl-text'
 
   const Icon = toast.kind === 'success' ? CheckIcon : toast.kind === 'error' ? XIcon : BoltIcon
 

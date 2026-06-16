@@ -1,4 +1,4 @@
-// Playwright-driven UI E2E for Oracle. Unlike the headless ORACLE_SMOKE path
+// Playwright-driven UI E2E for Sibyl. Unlike the headless SIBYL_SMOKE path
 // (which drives the engine/GPU through IPC), this drives the *renderer UI* as a
 // user would — clicking the real buttons — to exercise the chat-UX features that
 // don't need a loaded model: sidebar search, in-chat find, per-conversation
@@ -7,7 +7,7 @@
 // It runs the BUILT app (`npm run build` first), in an isolated temp userData dir
 // seeded with a couple of conversations, so it never touches your real data and
 // needs no model on the GPU. Exit 0 = pass, non-zero = fail; screenshots land in
-// ORACLE_E2E_OUT (default: a temp dir, printed at start).
+// SIBYL_E2E_OUT (default: a temp dir, printed at start).
 //
 //   npm run build && npm run test:e2e
 
@@ -20,8 +20,8 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const root = path.resolve(__dirname, '..')
 
-const outDir = process.env.ORACLE_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'oracle-e2e-out-'))
-const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oracle-e2e-data-'))
+const outDir = process.env.SIBYL_E2E_OUT || fs.mkdtempSync(path.join(os.tmpdir(), 'sibyl-e2e-out-'))
+const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'sibyl-e2e-data-'))
 
 function log(...a) {
   console.log('[e2e]', ...a)
@@ -146,7 +146,7 @@ async function run() {
     await page.getByText('Conversation settings').waitFor({ state: 'hidden', timeout: 5000 })
     await page.waitForTimeout(200)
 
-    const alpha = await page.evaluate(() => window.oracle.conversations.get('e2e-alpha'))
+    const alpha = await page.evaluate(() => window.sibyl.conversations.get('e2e-alpha'))
     assert(alpha?.data?.overrides?.systemPrompt === 'You are a terse bird expert.', 'system-prompt override persisted')
     assert(!!alpha?.data?.overrides?.generation, 'generation override persisted')
     // Header should now flag that overrides are active.
@@ -157,13 +157,13 @@ async function run() {
     await page.getByText('The capital of France is Paris.').waitFor({ timeout: 5000 })
     await page.getByText('Delete', { exact: true }).first().click()
     await page.waitForTimeout(250)
-    const beta = await page.evaluate(() => window.oracle.conversations.get('e2e-beta'))
+    const beta = await page.evaluate(() => window.sibyl.conversations.get('e2e-beta'))
     assert(beta?.data?.messages?.length === 1, 'deleting a message persisted (2 → 1)')
 
     // --- Branch (fork Beta's remaining message into a new conversation) ------
     await page.getByText('Branch', { exact: true }).first().click()
     await page.waitForTimeout(250)
-    const list = await page.evaluate(() => window.oracle.conversations.list())
+    const list = await page.evaluate(() => window.sibyl.conversations.list())
     const branchConv = (list?.data ?? []).find((c) => c.title.endsWith('(branch)'))
     assert(!!branchConv, 'branch created a new "(branch)" conversation')
     assert(branchConv.messages.length === 1, 'branch cloned messages up to the chosen point')
@@ -175,7 +175,7 @@ async function run() {
     await profileInput.fill('E2E Profile')
     await profileInput.press('Enter')
     await page.waitForTimeout(250)
-    const settings = await page.evaluate(() => window.oracle.settings.get())
+    const settings = await page.evaluate(() => window.sibyl.settings.get())
     assert(
       (settings?.data?.generationProfiles ?? []).some((p) => p.name === 'E2E Profile'),
       'new generation profile persisted'
@@ -184,7 +184,7 @@ async function run() {
     // --- Settings: stop sequences -------------------------------------------
     await page.getByPlaceholder('One per line').fill('<<<END>>>')
     await page.waitForTimeout(200)
-    const settings2 = await page.evaluate(() => window.oracle.settings.get())
+    const settings2 = await page.evaluate(() => window.sibyl.settings.get())
     assert(
       (settings2?.data?.generation?.stopSequences ?? []).includes('<<<END>>>'),
       'stop sequence persisted'

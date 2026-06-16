@@ -1,10 +1,10 @@
 ---
 name: cut-release
-description: Cut an Oracle release — bump the version, then build the x64 Windows (NSIS) installer on the GPU box and publish a GitHub pre-release with the .exe + auto-updater metadata (latest.yml) attached. Use when asked to cut/ship/publish a release, tag a version, or build the installer. This publishes externally — confirm with the user before the publishing step.
+description: Cut an Sibyl release — bump the version, then build the x64 Windows (NSIS) installer on the GPU box and publish a GitHub pre-release with the .exe + auto-updater metadata (latest.yml) attached. Use when asked to cut/ship/publish a release, tag a version, or build the installer. This publishes externally — confirm with the user before the publishing step.
 allowed-tools: Read, Grep, Glob, Bash, PowerShell, Edit
 ---
 
-# Cutting an Oracle release
+# Cutting an Sibyl release
 
 Releases are cut **manually on the GPU dev box** via `scripts/release.ps1`
 (`npm run release`). There is deliberately no self-hosted CI runner — that would
@@ -46,7 +46,7 @@ npm run release -- -DryRun
 
 This runs typecheck + unit tests + **GPU smoke** (`npm run smoke`) + `npm run
 dist`, and stops after confirming the installer exists at
-`release/<version>/Oracle-<version>-setup.exe`. Use this to validate the build
+`release/<version>/Sibyl-<version>-setup.exe`. Use this to validate the build
 without touching GitHub.
 
 `-SkipSmoke` skips only the GPU smoke gate (don't, for a real release — it's the
@@ -63,10 +63,10 @@ What it does, in order (`scripts/release.ps1`):
 2. `npm run typecheck` + `npm test`.
 3. `npm run smoke` (unless `-SkipSmoke`).
 4. `npm run dist` = `electron-vite build && electron-builder --win` (NSIS x64).
-5. Verify `release/<version>/Oracle-<version>-setup.exe`.
+5. Verify `release/<version>/Sibyl-<version>-setup.exe`.
 6. `git tag -a v<version>` (idempotent) and `git push origin v<version>`.
 7. `gh release create v<version> <installer> <latest.yml> [<blockmap>]
-   --prerelease --generate-notes --title "Oracle v<version>"`.
+   --prerelease --generate-notes --title "Sibyl v<version>"`.
 8. **Auto-prune**: keep only the most recent N releases online (default **2**),
    deleting older release pages + their installer assets. The in-app updater only
    reads the newest release's `latest.yml`, so older releases are dead storage.
