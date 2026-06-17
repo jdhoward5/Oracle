@@ -2,6 +2,7 @@ import { EventEmitter } from 'node:events'
 import { app } from 'electron'
 import electronUpdater from 'electron-updater'
 import type { UpdateStatus } from '@shared/types'
+import { teardownGpu } from './shutdown'
 
 // electron-updater is CommonJS; under this ESM project we take the default export
 // and destructure the singleton.
@@ -76,13 +77,26 @@ class Updater extends EventEmitter {
   }
 
   /**
-   * Quit and install a downloaded update. This spawns the NSIS installer and then
-   * triggers app quit, which runs our `before-quit` GPU-teardown path in
-   * `index.ts` (engine.unload → disposeLlama) before the process exits.
+   * Quit and install a downloaded update.
+   *
+   * We dispose the GPU *before* spawning the installer. `quitAndInstall` launches
+   * the NSIS installer immediately (then triggers app quit); the installer checks
+   * whether Sibyl is still running and, if so, shows "Sibyl cannot be closed".
+   * Our `before-quit` teardown is async (it disposes the CUDA backend, which must
+   * not be torn out from under a live process), so doing it here first lets the
+   * process exit the instant `quitAndInstall` fires — the running-check passes.
+   * `teardownGpu()` is idempotent, so the `before-quit` handler that follows is a
+   * no-op resolve rather than a second dispose.
+   *
    * `isSilent=false` shows the installer UI; `isForceRunAfter=true` relaunches.
    */
-  install(): void {
+  async install(): Promise<void> {
     if (!app.isPackaged) return
+    try {
+      await teardownGpu()
+    } catch {
+      /* teardownGpu swallows its own errors; never block the install on it */
+    }
     autoUpdater.quitAndInstall(false, true)
   }
 

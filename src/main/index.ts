@@ -2,8 +2,7 @@ import { app, BrowserWindow, session, shell } from 'electron'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import { registerIpc } from './ipc'
-import { engine } from './engine'
-import { disposeLlama } from './llama'
+import { teardownGpu } from './shutdown'
 import { initUpdater, checkForUpdates } from './updater'
 
 // Newer llama.cpp CUDA backends abort with `CUDA error: invalid resource handle`
@@ -269,25 +268,23 @@ app.on('window-all-closed', () => {
 // Tear the GPU context down fully before the process exits — disposing the
 // native llama.cpp/CUDA backend out from under an exiting process otherwise
 // crashes on Windows. We intercept the first quit, clean up, then exit.
+//
+// The auto-updater's install path (updater.ts) runs the *same* `teardownGpu()`
+// before it spawns the NSIS installer, so by the time `quitAndInstall` triggers
+// this handler the teardown is already done and we exit at once — otherwise the
+// installer's "is Sibyl still running?" check trips while we're disposing and
+// reports "Sibyl cannot be closed".
 let cleanedUp = false
 app.on('before-quit', (event) => {
   if (cleanedUp) return
   event.preventDefault()
   cleanedUp = true
-  // Prefer a clean unload (disposing the CUDA backend mid-flight crashes Windows),
-  // but never hang the quit on it: a watchdog force-exits if teardown stalls. The
+  // Never hang the quit on teardown: a watchdog force-exits if it stalls. The
   // ceiling is generous because engine.unload() may first await an in-flight
   // generation to stop.
   const watchdog = setTimeout(() => app.exit(0), 10_000)
-  void (async () => {
-    try {
-      await engine.unload()
-      await disposeLlama()
-    } catch {
-      /* ignore */
-    } finally {
-      clearTimeout(watchdog)
-      app.exit(0)
-    }
-  })()
+  void teardownGpu().finally(() => {
+    clearTimeout(watchdog)
+    app.exit(0)
+  })
 })

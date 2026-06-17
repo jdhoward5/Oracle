@@ -176,7 +176,7 @@ export function registerIpc(): void {
     await updater.download()
   })
   handle(IPC.updateInstall, async () => {
-    updater.install()
+    await updater.install()
   })
   handle(IPC.updateStatus, async () => updater.getStatus())
 
