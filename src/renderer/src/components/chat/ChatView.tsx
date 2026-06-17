@@ -19,7 +19,7 @@ import {
   XIcon
 } from '../../lib/icons'
 
-function EmptyState() {
+function EmptyState({ onCustomize }: { onCustomize: () => void }) {
   const hasModel = useStore((s) => Boolean(s.engine.modelId))
   const modelCount = useStore((s) => s.installedModels.length)
   return (
@@ -35,9 +35,13 @@ function EmptyState() {
             ? 'Select a model from the picker above to load it onto your GPU, then start chatting.'
             : 'You have no models yet. Head to Discover to download a chat model from Hugging Face.'}
       </p>
-      {modelCount === 0 && (
+      {modelCount === 0 ? (
         <button onClick={() => actions.setView('discover')} className="btn-primary">
           <CompassIcon size={16} /> Discover models
+        </button>
+      ) : (
+        <button onClick={onCustomize} className="btn-surface" title="System prompt & sampling for this chat">
+          <SlidersIcon size={16} /> Customize this chat
         </button>
       )}
     </div>
@@ -152,6 +156,13 @@ export function ChatView() {
     setFindIdx((i) => (Math.min(i, matchIds.length - 1) + dir + matchIds.length) % matchIds.length)
   }
 
+  // Open per-conversation settings, creating an empty conversation first if none
+  // is active yet (so settings can be tweaked before the first message is sent).
+  const openSettings = (): void => {
+    if (!conversation) actions.newConversation()
+    setSettingsOpen(true)
+  }
+
   return (
     <div className="flex min-h-0 flex-1">
       <ConversationList />
@@ -176,7 +187,7 @@ export function ChatView() {
                   <SearchIcon size={16} />
                 </button>
                 <button
-                  onClick={() => setSettingsOpen(true)}
+                  onClick={openSettings}
                   className="btn-ghost relative h-8 w-8 shrink-0 p-0"
                   title="Conversation settings"
                 >
@@ -237,7 +248,7 @@ export function ChatView() {
         )}
 
         {!conversation || visible.length === 0 ? (
-          <EmptyState />
+          <EmptyState onCustomize={openSettings} />
         ) : (
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
             <OverflowBanner />

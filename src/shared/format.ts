@@ -70,6 +70,34 @@ export function quantRank(quant: string | undefined): number {
   return rank
 }
 
+const NSFW_TAGS = new Set(['not-for-all-audiences', 'nsfw'])
+
+/** True when a model is tagged as adult / not-for-all-audiences content. */
+export function isNsfwModel(tags: string[]): boolean {
+  return tags.some((t) => NSFW_TAGS.has(t.toLowerCase()))
+}
+
+const DESCRIPTOR_RE =
+  /^(instruct|chat|conversational|uncensored|roleplay|writing|code|coding|reasoning|thinking|vision|multimodal|moe|merge|distill|abliterated|finetune)$/i
+
+/**
+ * Pick the most informative descriptor tags (what the model is *for*) to show as
+ * chips, de-duplicated and capped. Skips noise like language codes, base-model
+ * refs and tooling tags.
+ */
+export function descriptorTags(tags: string[], max = 3): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const t of tags) {
+    const tag = t.toLowerCase()
+    if (!DESCRIPTOR_RE.test(tag) || seen.has(tag)) continue
+    seen.add(tag)
+    out.push(tag)
+    if (out.length >= max) break
+  }
+  return out
+}
+
 /** Truncate text to a max length adding an ellipsis. */
 export function truncate(text: string, max: number): string {
   if (text.length <= max) return text

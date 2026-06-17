@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import {
+  descriptorTags,
   formatBytes,
   formatEta,
   formatSpeed,
   isMultipartGGUF,
+  isNsfwModel,
   modelIdFor,
   parseParamLabel,
   parseQuant,
@@ -85,6 +87,34 @@ describe('quantRank', () => {
     expect(quantRank('Q8_0')).toBeGreaterThan(quantRank('Q4_K_M'))
     expect(quantRank('Q4_K_M')).toBeGreaterThan(quantRank('Q2_K'))
     expect(quantRank(undefined)).toBe(0)
+  })
+})
+
+describe('isNsfwModel', () => {
+  it('detects adult tags case-insensitively', () => {
+    expect(isNsfwModel(['writing', 'Not-For-All-Audiences'])).toBe(true)
+    expect(isNsfwModel(['nsfw'])).toBe(true)
+  })
+  it('is false for ordinary models', () => {
+    expect(isNsfwModel(['text-generation', 'qwen3'])).toBe(false)
+    expect(isNsfwModel([])).toBe(false)
+  })
+})
+
+describe('descriptorTags', () => {
+  it('keeps only informative tags, de-duped and capped', () => {
+    expect(descriptorTags(['en', 'instruct', 'qwen3', 'uncensored', 'safetensors'])).toEqual([
+      'instruct',
+      'uncensored'
+    ])
+    expect(descriptorTags(['Chat', 'chat', 'roleplay'])).toEqual(['chat', 'roleplay'])
+    expect(descriptorTags(['instruct', 'chat', 'writing', 'reasoning'], 2)).toEqual([
+      'instruct',
+      'chat'
+    ])
+  })
+  it('returns empty when nothing matches', () => {
+    expect(descriptorTags(['en', 'license:mit', 'qwen3'])).toEqual([])
   })
 })
 

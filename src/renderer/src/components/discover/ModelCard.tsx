@@ -1,4 +1,5 @@
 import type { HFModelSummary } from '@shared/types'
+import { descriptorTags, isNsfwModel, parseParamLabel } from '@shared/format'
 import { DownloadIcon, HeartIcon } from '../../lib/icons'
 
 function compact(n: number): string {
@@ -9,6 +10,8 @@ function compact(n: number): string {
 
 export function ModelCard({ model, onClick }: { model: HFModelSummary; onClick: () => void }) {
   const [author, name] = model.id.includes('/') ? model.id.split(/\/(.*)/s) : ['', model.id]
+  const nsfw = isNsfwModel(model.tags)
+  const param = parseParamLabel(name)
   return (
     <button
       onClick={onClick}
@@ -21,15 +24,14 @@ export function ModelCard({ model, onClick }: { model: HFModelSummary; onClick: 
         <div className="truncate text-[12px] text-sibyl-muted">{author}</div>
       </div>
       <div className="flex flex-wrap gap-1.5">
+        {nsfw && <span className="chip border border-rose-500/40 text-rose-300/90">18+</span>}
         {model.gated && <span className="chip border border-amber-500/30 text-amber-300/90">gated</span>}
-        {model.tags
-          .filter((t) => /^(text-generation|conversational|llama|qwen|mistral|gemma|phi|gguf)/i.test(t))
-          .slice(0, 3)
-          .map((t) => (
-            <span key={t} className="chip">
-              {t}
-            </span>
-          ))}
+        {param && <span className="chip">{param}</span>}
+        {descriptorTags(model.tags).map((t) => (
+          <span key={t} className="chip">
+            {t}
+          </span>
+        ))}
       </div>
       <div className="mt-auto flex items-center gap-4 text-[11.5px] text-sibyl-muted">
         <span className="flex items-center gap-1">

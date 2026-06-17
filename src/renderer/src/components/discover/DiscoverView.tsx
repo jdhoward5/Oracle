@@ -24,7 +24,8 @@ export function DiscoverView() {
       <div className="border-b border-sibyl-border/60 px-6 py-4">
         <h1 className="mb-1 text-xl font-semibold text-sibyl-text">Discover models</h1>
         <p className="mb-4 text-[13px] text-sibyl-muted">
-          Browse GGUF chat models from Hugging Face. Everything you download runs locally.
+          Browse GGUF chat models from Hugging Face — search by name, author, or exact repo id.
+          Everything you download runs locally.
         </p>
         <div className="flex items-center gap-3">
           <div className="relative flex-1">

@@ -1,6 +1,6 @@
 import { actions, useStore } from '../../store'
-import { formatBytes, quantRank } from '@shared/format'
-import { XIcon, DownloadIcon, CheckIcon, HeartIcon } from '../../lib/icons'
+import { descriptorTags, formatBytes, isNsfwModel, parseParamLabel, quantRank } from '@shared/format'
+import { XIcon, DownloadIcon, CheckIcon, HeartIcon, ExternalLinkIcon } from '../../lib/icons'
 import type { HFGGUFFile } from '@shared/types'
 
 function recommendationFor(quant: string | undefined): string | null {
@@ -47,6 +47,32 @@ export function ModelDetailDrawer() {
                   <span className="flex items-center gap-1">
                     <HeartIcon size={13} /> {detail.likes.toLocaleString()}
                   </span>
+                  <a
+                    href={`https://huggingface.co/${detail.id}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 text-sibyl-accent/90 hover:text-sibyl-accent"
+                  >
+                    <ExternalLinkIcon size={13} /> Hugging Face
+                  </a>
+                </div>
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
+                  {isNsfwModel(detail.tags) && (
+                    <span className="chip border border-rose-500/40 text-rose-300/90">18+</span>
+                  )}
+                  {detail.gated && (
+                    <span className="chip border border-amber-500/30 text-amber-300/90">gated</span>
+                  )}
+                  {parseParamLabel(detail.id.split('/').pop() ?? '') && (
+                    <span className="chip">{parseParamLabel(detail.id.split('/').pop() ?? '')}</span>
+                  )}
+                  {detail.pipelineTag && <span className="chip">{detail.pipelineTag}</span>}
+                  {descriptorTags(detail.tags).map((t) => (
+                    <span key={t} className="chip">
+                      {t}
+                    </span>
+                  ))}
                 </div>
               </div>
               <button onClick={() => actions.closeModelDetail()} className="btn-ghost h-8 w-8 p-0">

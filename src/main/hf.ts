@@ -89,17 +89,38 @@ function toSummary(m: RawModel): HFModelSummary {
 export type SortKey = 'trending' | 'downloads' | 'likes'
 
 /**
- * Search Hugging Face for GGUF text-generation models. We always constrain to
- * the `gguf` library so every result is loadable by the local engine, and to
- * `text-generation` so we surface chat/instruct models rather than embeddings,
- * rerankers, etc.
+ * Pipeline tags that ship as GGUF but aren't chat/instruct text models. We hide
+ * these so Discover stays focused on things the engine can actually chat with,
+ * while still surfacing everything else — crucially including repos that set
+ * **no** pipeline tag at all (a great many community GGUF finetunes omit it, so
+ * a stricter `text-generation` filter silently dropped popular models that are
+ * perfectly loadable).
+ */
+const NON_CHAT_PIPELINE_TAGS = new Set([
+  'feature-extraction',
+  'sentence-similarity',
+  'text-ranking',
+  'text-classification',
+  'token-classification',
+  'fill-mask',
+  'automatic-speech-recognition',
+  'text-to-speech',
+  'text-to-image',
+  'image-classification'
+])
+
+/**
+ * Search Hugging Face for GGUF chat models. We always constrain to the `gguf`
+ * library so every result has files the local engine can load, then filter out
+ * the handful of non-chat task types (embeddings, rerankers, ASR, …) client-side
+ * rather than via a `text-generation` server filter — the latter excludes any
+ * repo whose author never set a pipeline tag, which hides many usable finetunes.
  */
 export async function searchModels(query: string, sort: SortKey = 'trending'): Promise<HFModelSummary[]> {
   const params = new URLSearchParams()
   params.set('filter', 'gguf')
-  params.append('filter', 'text-generation')
   if (query.trim()) params.set('search', query.trim())
-  params.set('limit', '40')
+  params.set('limit', '50')
   params.set('full', 'false')
   if (sort === 'downloads') {
     params.set('sort', 'downloads')
@@ -113,7 +134,9 @@ export async function searchModels(query: string, sort: SortKey = 'trending'): P
   }
   const data = (await hfFetch(`${HF_API}/models?${params.toString()}`)) as RawModel[]
   if (!Array.isArray(data)) return []
-  return data.map(toSummary)
+  return data
+    .map(toSummary)
+    .filter((m) => !m.pipelineTag || !NON_CHAT_PIPELINE_TAGS.has(m.pipelineTag))
 }
 
 interface TreeEntry {
