@@ -4,6 +4,11 @@
 
 :root {
   color-scheme: dark;
+  /* Accent trio (RGB channels) — baseline = the "Arcane" theme. The renderer
+     overrides these on documentElement when another accent theme is selected. */
+  --sibyl-accent: 139 124 255;
+  --sibyl-accent-2: 91 141 255;
+  --sibyl-glow: 167 139 250;
 }
 
 * {
@@ -51,13 +56,13 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #2a2e44;
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 8px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #3a3f5e;
+  background: rgba(255, 255, 255, 0.2);
   background-clip: content-box;
 }
 
@@ -70,7 +75,11 @@ body {
     @apply no-drag inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-40;
   }
   .btn-primary {
-    @apply btn bg-gradient-to-br from-sibyl-accent to-sibyl-accent-2 text-white shadow-lg shadow-sibyl-accent/20 hover:brightness-110 active:brightness-95;
+    @apply btn bg-gradient-to-br from-sibyl-accent to-sibyl-accent-2 text-[#0a0a0b] font-semibold shadow-lg shadow-sibyl-accent/30 hover:brightness-110 active:brightness-95;
+  }
+  /* Eyebrow: the small mono uppercase section labels used across the UI. */
+  .eyebrow {
+    @apply font-mono text-[11px] uppercase tracking-[0.12em] text-sibyl-muted;
   }
   .btn-ghost {
     @apply btn text-sibyl-muted hover:bg-sibyl-surface-2 hover:text-sibyl-text;
@@ -121,21 +130,35 @@ body {
   width: 16px;
   height: 16px;
   border-radius: 9999px;
-  background: linear-gradient(135deg, #8b7cff, #5b8dff);
+  background: linear-gradient(135deg, rgb(var(--sibyl-accent)), rgb(var(--sibyl-accent-2)));
   cursor: pointer;
-  box-shadow: 0 0 0 4px rgba(139, 124, 255, 0.15);
+  box-shadow: 0 0 0 4px rgb(var(--sibyl-accent) / 0.15);
   transition: box-shadow 0.15s;
 }
 .sibyl-range::-webkit-slider-thumb:hover {
-  box-shadow: 0 0 0 6px rgba(139, 124, 255, 0.22);
+  box-shadow: 0 0 0 6px rgb(var(--sibyl-accent) / 0.22);
 }
 
-/* Blinking cursor for the streaming assistant message. */
+/* Streaming caret — a solid accent block that hard-blinks at 1s steps. */
 .caret::after {
-  content: '▋';
-  margin-left: 1px;
-  color: theme('colors.sibyl.accent');
-  animation: pulse-glow 1s steps(2) infinite;
+  content: '';
+  display: inline-block;
+  width: 8px;
+  height: 1.05em;
+  margin-left: 2px;
+  vertical-align: -0.18em;
+  background: rgb(var(--sibyl-accent));
+  animation: caret-blink 1s steps(1) infinite;
+}
+@keyframes caret-blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
 }
 
 /* Markdown content styling (scoped to .prose-sibyl). */
@@ -183,4 +206,19 @@ body {
 .prose-sibyl blockquote {
   @apply border-l-2 border-sibyl-accent/50 pl-3 text-sibyl-muted;
   margin: 0.5em 0;
+}
+
+/* Attributed-prose transcript: reading-first measure with tinted dialogue. */
+.prose-rp {
+  @apply text-[16px] text-sibyl-text;
+  line-height: 1.78;
+}
+.prose-rp p {
+  margin: 0;
+}
+.prose-rp p + p {
+  margin-top: 0.7em;
+}
+.prose-rp .rp-quote {
+  @apply text-sibyl-secondary;
 }

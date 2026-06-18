@@ -32,7 +32,10 @@ export function Rail() {
             title={label}
           >
             {active && (
-              <span className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-sibyl-accent" />
+              <span
+                className="absolute left-0 top-1/2 h-7 w-[3px] -translate-y-1/2 rounded-r bg-sibyl-accent"
+                style={{ boxShadow: '0 0 12px -1px rgb(var(--sibyl-accent))' }}
+              />
             )}
             <Icon size={20} />
             <span className="text-[10px] font-medium">{label}</span>

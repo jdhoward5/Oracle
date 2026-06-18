@@ -101,10 +101,16 @@ function parseBlocks(src: string): Block[] {
   return blocks
 }
 
-// Inline formatting: **bold**, *italic*, `code`, [text](url).
-function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
+// Inline formatting: **bold**, *italic*, `code`, [text](url). When `tintQuotes`
+// is set (the attributed-prose transcript), spans of "…"/“…” double-quoted
+// dialogue are tinted so speech reads distinct from narration.
+const INLINE = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g
+const INLINE_Q =
+  /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|("[^"\n]+")|(“[^”\n]+”))/g
+
+function renderInline(text: string, keyPrefix: string, tintQuotes = false): React.ReactNode[] {
   const nodes: React.ReactNode[] = []
-  const regex = /(\*\*([^*]+)\*\*|\*([^*]+)\*|`([^`]+)`|\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))/g
+  const regex = tintQuotes ? new RegExp(INLINE_Q.source, 'g') : new RegExp(INLINE.source, 'g')
   let lastIndex = 0
   let match: RegExpExecArray | null
   let k = 0
@@ -127,6 +133,12 @@ function renderInline(text: string, keyPrefix: string): React.ReactNode[] {
         <a key={`${keyPrefix}-a${k}`} href={match[6]} target="_blank" rel="noreferrer">
           {match[5]}
         </a>
+      )
+    } else if (match[7] !== undefined || match[8] !== undefined) {
+      nodes.push(
+        <span className="rp-quote" key={`${keyPrefix}-q${k}`}>
+          {match[7] ?? match[8]}
+        </span>
       )
     }
     lastIndex = regex.lastIndex
@@ -164,10 +176,11 @@ function CodeBlock({ code, lang }: { code: string; lang?: string }) {
   )
 }
 
-export function Markdown({ source }: { source: string }) {
+export function Markdown({ source, tintQuotes = false }: { source: string; tintQuotes?: boolean }) {
   const blocks = parseBlocks(source)
+  const tq = tintQuotes
   return (
-    <div className="prose-sibyl selectable">
+    <div className={`prose-sibyl selectable${tq ? ' prose-rp' : ''}`}>
       {blocks.map((b, idx) => {
         const key = `b${idx}`
         switch (b.type) {
@@ -175,24 +188,24 @@ export function Markdown({ source }: { source: string }) {
             return <CodeBlock key={key} code={b.content} lang={b.lang} />
           case 'heading': {
             const Tag = (`h${b.level ?? 1}` as 'h1' | 'h2' | 'h3')
-            return <Tag key={key}>{renderInline(b.content, key)}</Tag>
+            return <Tag key={key}>{renderInline(b.content, key, tq)}</Tag>
           }
           case 'quote':
-            return <blockquote key={key}>{renderInline(b.content, key)}</blockquote>
+            return <blockquote key={key}>{renderInline(b.content, key, tq)}</blockquote>
           case 'ul':
             return (
               <ul key={key}>
-                {b.items?.map((it, j) => <li key={`${key}-${j}`}>{renderInline(it, `${key}-${j}`)}</li>)}
+                {b.items?.map((it, j) => <li key={`${key}-${j}`}>{renderInline(it, `${key}-${j}`, tq)}</li>)}
               </ul>
             )
           case 'ol':
             return (
               <ol key={key}>
-                {b.items?.map((it, j) => <li key={`${key}-${j}`}>{renderInline(it, `${key}-${j}`)}</li>)}
+                {b.items?.map((it, j) => <li key={`${key}-${j}`}>{renderInline(it, `${key}-${j}`, tq)}</li>)}
               </ol>
             )
           default:
-            return <p key={key}>{renderInline(b.content, key)}</p>
+            return <p key={key}>{renderInline(b.content, key, tq)}</p>
         }
       })}
     </div>

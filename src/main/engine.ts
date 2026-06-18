@@ -13,6 +13,7 @@ import type {
 } from '@shared/types'
 import { DEFAULT_GENERATION_OPTIONS } from '@shared/types'
 import { contextLevel } from '@shared/context'
+import { findPersona } from '@shared/personas'
 import { getLlamaInstance } from './llama'
 import { getInstalledModel, getSettings, upsertInstalledModel } from './store'
 
@@ -221,16 +222,47 @@ class InferenceEngine extends EventEmitter {
   }
 
   /**
-   * The system prompt actually fed to the model: the conversation's (or default)
-   * system text, plus the compaction summary when older turns have been folded.
+   * The system prompt actually fed to the model. Resolution order (most specific
+   * wins): per-conversation override → persona brief → legacy system message →
+   * global prompt. The writer's own character and the compaction summary are
+   * appended when present.
    */
   private systemPromptFor(conversation: Conversation, settings: AppSettings): string {
     const override = conversation.overrides?.systemPrompt?.trim()
+    const persona = findPersona(settings.personas, conversation.personaId)
     const systemMessage = conversation.messages.find((m) => m.role === 'system')
-    let prompt = override || systemMessage?.content?.trim() || settings.load.systemPrompt
+    let prompt =
+      override ||
+      persona?.brief?.trim() ||
+      systemMessage?.content?.trim() ||
+      settings.load.systemPrompt
+
+    const uc = conversation.userCharacter
+    const ucName = uc?.name?.trim()
+    const ucDesc = uc?.description?.trim()
+    if (ucName || ucDesc) {
+      prompt += `\n\nThe user plays ${ucName || 'an unnamed character'}${ucDesc ? `: ${ucDesc}` : ''}.`
+    }
+
     const summary = conversation.compaction?.summary?.trim()
     if (summary) prompt += `\n\n${SUMMARY_PREFIX}${summary}`
     return prompt
+  }
+
+  /** Effective generation options: global → persona → per-conversation override. */
+  private generationFor(
+    conversation: Conversation,
+    settings: AppSettings,
+    optionsOverride: Partial<GenerationOptions> | undefined
+  ): GenerationOptions {
+    const persona = findPersona(settings.personas, conversation.personaId)
+    return {
+      ...DEFAULT_GENERATION_OPTIONS,
+      ...settings.generation,
+      ...(persona?.generation ?? {}),
+      ...(conversation.overrides?.generation ?? {}),
+      ...optionsOverride
+    }
   }
 
   /**
@@ -329,12 +361,7 @@ class InferenceEngine extends EventEmitter {
 
     try {
       const settings = await getSettings()
-      const opts: GenerationOptions = {
-        ...DEFAULT_GENERATION_OPTIONS,
-        ...settings.generation,
-        ...(conversation.overrides?.generation ?? {}),
-        ...optionsOverride
-      }
+      const opts = this.generationFor(conversation, settings, optionsOverride)
       const session = await this.ensureSession(conversation, userText)
       this.abort = new AbortController()
       await this.setState('generating')
@@ -478,7 +505,9 @@ class InferenceEngine extends EventEmitter {
   async computeUsage(conversation: Conversation | null): Promise<ContextUsage> {
     const settings = await getSettings()
     const contextSize = this.contextSize ?? 0
-    const reserve = conversation?.overrides?.generation?.maxTokens ?? settings.generation.maxTokens
+    const reserve = conversation
+      ? this.generationFor(conversation, settings, undefined).maxTokens
+      : settings.generation.maxTokens
     const { warnThreshold, compactThreshold } = settings.context
 
     let usedTokens = 0

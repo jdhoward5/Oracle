@@ -1,108 +1,114 @@
 import { actions, useStore } from '../../store'
 import { formatBytes } from '@shared/format'
-import { BoltIcon, CheckIcon, TrashIcon, FolderIcon, BoxIcon, CompassIcon } from '../../lib/icons'
+import { CheckIcon, TrashIcon, FolderIcon, BoxIcon, CompassIcon } from '../../lib/icons'
 
 export function ModelsView() {
   const models = useStore((s) => s.installedModels)
   const engine = useStore((s) => s.engine)
+  const totalBytes = models.reduce((sum, m) => sum + m.sizeBytes, 0)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-sibyl-border/60 px-6 py-4">
-        <div>
-          <h1 className="text-xl font-semibold text-sibyl-text">Your models</h1>
-          <p className="text-[13px] text-sibyl-muted">
-            {models.length} model{models.length === 1 ? '' : 's'} installed locally
-          </p>
-        </div>
-        <button onClick={() => actions.setView('discover')} className="btn-surface">
-          <CompassIcon size={16} /> Discover more
-        </button>
-      </div>
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-[840px] px-8 py-7">
+          <div className="mb-6 flex items-end justify-between">
+            <div>
+              <div className="eyebrow mb-2 text-sibyl-accent">// Models</div>
+              <h1 className="font-mono text-[24px] font-extrabold text-sibyl-text">Installed</h1>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-[12px] text-sibyl-muted">
+                {models.length} {models.length === 1 ? 'model' : 'models'}
+                {totalBytes > 0 && ` · ${formatBytes(totalBytes)} on disk`}
+              </span>
+              <button onClick={() => actions.setView('discover')} className="btn-surface h-9">
+                <CompassIcon size={16} /> Discover
+              </button>
+            </div>
+          </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        {models.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <BoxIcon size={36} className="mb-3 text-sibyl-muted/40" />
-            <p className="mb-4 text-[14px] text-sibyl-muted">No models installed yet.</p>
-            <button onClick={() => actions.setView('discover')} className="btn-primary">
-              <CompassIcon size={16} /> Browse Hugging Face
-            </button>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {models.map((m) => {
-              const isLoaded = m.id === engine.modelId
-              const loading = engine.state === 'loading'
-              return (
-                <div key={m.id} className="card flex items-center gap-4 p-4">
-                  <div
-                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${
-                      isLoaded
-                        ? 'bg-gradient-to-br from-sibyl-accent to-sibyl-accent-2 text-white'
-                        : 'bg-sibyl-surface-2 text-sibyl-muted'
-                    }`}
-                  >
-                    <BoxIcon size={20} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[14px] font-semibold text-sibyl-text">
-                      {m.filename.replace(/\.gguf$/i, '')}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2 text-[12px] text-sibyl-muted">
-                      <span className="truncate">{m.repoId}</span>
-                      {m.quant && <span className="chip">{m.quant}</span>}
-                      {m.paramLabel && <span className="chip">{m.paramLabel}</span>}
-                      <span>{formatBytes(m.sizeBytes)}</span>
-                      {m.trainContextLength && <span>{(m.trainContextLength / 1024).toFixed(0)}K ctx</span>}
-                      {m.verifiedBy === 'sha256' && (
-                        <span
-                          className="inline-flex items-center gap-1 text-sibyl-glow"
-                          title="SHA-256 verified against Hugging Face's published checksum"
-                        >
-                          <CheckIcon size={12} /> Verified
-                        </span>
+          {models.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-24 text-center">
+              <BoxIcon size={36} className="mb-3 text-sibyl-muted/40" />
+              <p className="mb-4 text-[14px] text-sibyl-muted">No models installed yet.</p>
+              <button onClick={() => actions.setView('discover')} className="btn-primary">
+                <CompassIcon size={16} /> Browse Hugging Face
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="eyebrow mb-2.5 text-[11px]">On this machine</div>
+              <div className="flex flex-col gap-2.5">
+                {models.map((m) => {
+                  const isLoaded = m.id === engine.modelId
+                  const loading = engine.state === 'loading'
+                  const meta = [
+                    m.repoId.split('/')[0],
+                    m.quant,
+                    formatBytes(m.sizeBytes),
+                    m.trainContextLength ? `${(m.trainContextLength / 1024).toFixed(0)}K ctx` : null
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                  return (
+                    <div
+                      key={m.id}
+                      className={`flex items-center gap-4 rounded-lg border bg-sibyl-surface px-4 py-3.5 ${
+                        isLoaded ? 'border-emerald-400/25' : 'border-sibyl-border'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2.5">
+                          <span className="truncate font-mono text-[14px] font-bold text-sibyl-text">
+                            {m.filename.replace(/\.gguf$/i, '')}
+                          </span>
+                          {isLoaded && (
+                            <span className="flex shrink-0 items-center gap-1.5 font-mono text-[10.5px] text-emerald-300">
+                              <span className="h-1.5 w-1.5 rounded-full bg-emerald-300 shadow-[0_0_8px] shadow-emerald-300" />
+                              loaded
+                            </span>
+                          )}
+                          {m.verifiedBy === 'sha256' && (
+                            <span
+                              className="inline-flex shrink-0 items-center gap-1 font-mono text-[10.5px] text-sibyl-glow"
+                              title="SHA-256 verified against Hugging Face's published checksum"
+                            >
+                              <CheckIcon size={11} /> verified
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1.5 truncate font-mono text-[11px] text-sibyl-muted">{meta}</div>
+                      </div>
+                      {isLoaded ? (
+                        <button onClick={() => void actions.unloadModel()} className="btn-surface h-[34px]">
+                          Eject
+                        </button>
+                      ) : (
+                        <button onClick={() => actions.loadModel(m.id)} disabled={loading} className="btn-primary h-[34px]">
+                          Load
+                        </button>
                       )}
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-2">
-                    {isLoaded ? (
-                      <span className="flex items-center gap-1.5 rounded-lg bg-sibyl-accent/15 px-3 py-2 text-[12px] font-medium text-sibyl-glow">
-                        <CheckIcon size={15} /> Loaded
-                      </span>
-                    ) : (
-                      <button
-                        onClick={() => actions.loadModel(m.id)}
-                        disabled={loading}
-                        className="btn-primary h-9"
-                      >
-                        <BoltIcon size={15} /> Load
+                      <button onClick={() => actions.revealModel(m.id)} className="btn-ghost h-[34px] w-[34px] p-0" title="Show in folder">
+                        <FolderIcon size={16} />
                       </button>
-                    )}
-                    <button
-                      onClick={() => actions.revealModel(m.id)}
-                      className="btn-ghost h-9 w-9 p-0"
-                      title="Show in folder"
-                    >
-                      <FolderIcon size={16} />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (confirm(`Delete ${m.filename}? This removes the file from disk.`)) {
-                          void actions.deleteModel(m.id)
-                        }
-                      }}
-                      className="btn-ghost h-9 w-9 p-0 hover:text-red-300"
-                      title="Delete model"
-                    >
-                      <TrashIcon size={16} />
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete ${m.filename}? This removes the file from disk.`)) {
+                            void actions.deleteModel(m.id)
+                          }
+                        }}
+                        className="btn-ghost h-[34px] w-[34px] p-0 hover:text-red-300"
+                        title="Delete model"
+                      >
+                        <TrashIcon size={16} />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   )

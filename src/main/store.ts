@@ -2,12 +2,36 @@ import { app, safeStorage } from 'electron'
 import { promises as fs } from 'node:fs'
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import type { AppSettings, Conversation, InstalledModel } from '@shared/types'
+import type { AppSettings, Conversation, InstalledModel, Persona, SystemPromptPreset } from '@shared/types'
 import {
   DEFAULT_CONTEXT_SETTINGS,
   DEFAULT_GENERATION_OPTIONS,
   DEFAULT_GENERATION_PROFILES
 } from '@shared/types'
+import { DEFAULT_ACCENT } from '@shared/themes'
+import { DEFAULT_PERSONAS, gradientFor, initialsOf } from '@shared/personas'
+
+/** Deep-ish clone so callers can't mutate the shared default persona objects. */
+function clonePersona(p: Persona): Persona {
+  return {
+    ...p,
+    avatar: { ...p.avatar, gradient: [...p.avatar.gradient] },
+    voiceTags: [...p.voiceTags],
+    generation: p.generation ? { ...p.generation } : undefined
+  }
+}
+
+/** Convert a legacy prompt preset (name + prompt) into a brief-only persona. */
+function presetToPersona(p: SystemPromptPreset): Persona {
+  return {
+    id: p.id,
+    name: p.name,
+    role: '',
+    brief: p.prompt,
+    avatar: { monogram: initialsOf(p.name), gradient: gradientFor(p.id) },
+    voiceTags: []
+  }
+}
 
 /**
  * Persistent JSON store rooted in Electron's userData directory.
@@ -89,8 +113,10 @@ function defaultSettings(): AppSettings {
     },
     context: { ...DEFAULT_CONTEXT_SETTINGS },
     theme: 'dark',
+    accent: DEFAULT_ACCENT,
     gpu: 'auto',
     verifyDownloads: true,
+    personas: DEFAULT_PERSONAS.map(clonePersona),
     promptPresets: [],
     generationProfiles: DEFAULT_GENERATION_PROFILES.map((p) => ({ ...p, options: { ...p.options } })),
     telemetry: false
@@ -140,12 +166,22 @@ export async function getSettings(): Promise<AppSettings> {
     cachedSettings = base
     return base
   }
+  // Persona library: an upgrade from a pre-persona build has no `personas`. Fold
+  // any legacy prompt presets into brief-only personas; if there were none, seed
+  // the starter library so the feature is discoverable.
+  let personas = persisted.personas
+  if (!personas) {
+    const migrated = (persisted.promptPresets ?? []).map(presetToPersona)
+    personas = migrated.length ? migrated : DEFAULT_PERSONAS.map(clonePersona)
+  }
+
   cachedSettings = {
     ...base,
     ...persisted,
     generation: { ...base.generation, ...persisted.generation },
     load: { ...base.load, ...persisted.load },
     context: { ...base.context, ...persisted.context },
+    personas,
     hfToken: decryptToken(persisted.hfTokenEnc),
     telemetry: false
   }
@@ -178,8 +214,10 @@ export async function setSettings(patch: Partial<AppSettings>): Promise<AppSetti
     load: next.load,
     context: next.context,
     theme: next.theme,
+    accent: next.accent,
     gpu: next.gpu,
     verifyDownloads: next.verifyDownloads,
+    personas: next.personas,
     promptPresets: next.promptPresets,
     generationProfiles: next.generationProfiles,
     telemetry: false,

@@ -87,18 +87,18 @@ async function run() {
 
   try {
     // Ready when the conversation list has rendered.
-    await page.getByText('New chat').waitFor({ timeout: 30000 })
+    await page.getByText('New thread').waitFor({ timeout: 30000 })
     await page.getByText('Alpha chat about pelicans').first().waitFor({ timeout: 30000 })
     await shot('01-boot.png')
     log('app booted with seeded conversations')
 
     // --- Sidebar search ------------------------------------------------------
-    await page.getByPlaceholder('Search conversations').fill('pelican')
+    await page.getByPlaceholder('Search threads').fill('pelican')
     await page.waitForTimeout(150)
     assert((await page.getByText('Beta chat about France').count()) === 0, 'search hides non-matching conversation')
     assert((await page.getByText('Alpha chat about pelicans').count()) >= 1, 'search keeps matching conversation')
     await shot('02-search.png')
-    await page.getByPlaceholder('Search conversations').fill('')
+    await page.getByPlaceholder('Search threads').fill('')
     await page.waitForTimeout(100)
 
     // --- In-chat find (Alpha is the active conversation) ---------------------
@@ -120,9 +120,9 @@ async function run() {
     await composer.fill('')
     await page.waitForTimeout(50)
 
-    // --- Conversation settings drawer: export + overrides --------------------
-    await page.getByTitle('Conversation settings').click()
-    await page.getByText('Conversation settings').waitFor({ timeout: 5000 })
+    // --- Thread settings drawer: export + overrides --------------------------
+    await page.getByTitle('Thread settings').click()
+    await page.getByText('Thread settings').waitFor({ timeout: 5000 })
     const drawer = page.locator('div.z-40').first()
 
     // Export (stub the native save dialog in the main process to a temp file).
@@ -136,21 +136,24 @@ async function run() {
     const md = fs.readFileSync(exportPath, 'utf8')
     assert(md.includes('# Alpha chat about pelicans') && md.includes('Pelicans are large'), 'exported markdown has title + content')
 
-    // Overrides: set a system prompt + enable a generation profile, then save.
-    await drawer.locator('textarea').fill('You are a terse bird expert.')
+    // Overrides: set the character-brief override + enable a generation profile,
+    // then save. (The drawer now also has a "your character" textarea + a persona
+    // copy dropdown, so target the first textarea and the profile select by its
+    // "Apply profile…" option.)
+    await drawer.locator('textarea').first().fill('You are a terse bird expert.')
     await drawer.getByRole('switch').click() // enable generation override
     await page.waitForTimeout(100)
-    await drawer.locator('select').first().selectOption({ label: 'Creative' })
+    await drawer.locator('select').last().selectOption({ label: 'Creative' })
     await shot('04-overrides.png')
     await drawer.getByRole('button', { name: 'Save' }).click()
-    await page.getByText('Conversation settings').waitFor({ state: 'hidden', timeout: 5000 })
+    await page.getByText('Thread settings').waitFor({ state: 'hidden', timeout: 5000 })
     await page.waitForTimeout(200)
 
     const alpha = await page.evaluate(() => window.sibyl.conversations.get('e2e-alpha'))
     assert(alpha?.data?.overrides?.systemPrompt === 'You are a terse bird expert.', 'system-prompt override persisted')
     assert(!!alpha?.data?.overrides?.generation, 'generation override persisted')
     // Header should now flag that overrides are active.
-    assert((await page.getByTitle('Conversation settings').locator('span').count()) >= 1, 'header shows overrides indicator dot')
+    assert((await page.getByTitle('Thread settings').locator('span').count()) >= 1, 'header shows overrides indicator dot')
 
     // --- Delete a single message (Beta) -------------------------------------
     await page.getByText('Beta chat about France').click()

@@ -35,7 +35,7 @@ export function ModelPicker() {
       </button>
 
       {open && models.length > 0 && (
-        <div className="absolute left-0 top-11 z-30 max-h-[60vh] w-[360px] animate-fade-in overflow-y-auto rounded-xl border border-sibyl-border bg-sibyl-surface p-1.5 shadow-2xl">
+        <div className="absolute right-0 top-11 z-30 max-h-[60vh] w-[340px] max-w-[80vw] animate-fade-in overflow-y-auto rounded-xl border border-sibyl-border bg-sibyl-surface p-1.5 shadow-2xl">
           {models.map((m) => {
             const isLoaded = m.id === engine.modelId
             return (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { actions, useStore } from '../../store'
-import { PlusIcon, TrashIcon, ChatIcon, EditIcon, SearchIcon } from '../../lib/icons'
+import { findPersona } from '@shared/personas'
+import { PlusIcon, TrashIcon, EditIcon, SearchIcon } from '../../lib/icons'
 
 /** First message snippet around a match, for the search results. */
 function matchSnippet(content: string, q: string): string | null {
@@ -10,9 +11,23 @@ function matchSnippet(content: string, q: string): string | null {
   return (start > 0 ? '…' : '') + content.slice(start, i + q.length + 36).trim() + '…'
 }
 
+/** Compact relative time for the thread meta line. */
+function relTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime()
+  const m = Math.floor(ms / 60000)
+  if (m < 1) return 'now'
+  if (m < 60) return `${m}m`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h`
+  const d = Math.floor(h / 24)
+  if (d < 7) return `${d}d`
+  return new Date(iso).toLocaleDateString()
+}
+
 export function ConversationList() {
   const conversations = useStore((s) => s.conversations)
   const activeId = useStore((s) => s.activeConversationId)
+  const personas = useStore((s) => s.settings?.personas ?? [])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [query, setQuery] = useState('')
@@ -27,51 +42,49 @@ export function ConversationList() {
     : conversations
 
   return (
-    <div className="flex w-[260px] shrink-0 flex-col border-r border-sibyl-border/60 bg-sibyl-bg">
+    <div className="flex w-[262px] shrink-0 flex-col border-r border-sibyl-border/60 bg-sibyl-sunken">
       <div className="flex flex-col gap-2 p-3">
-        <button onClick={() => actions.newConversation()} className="btn-primary w-full">
-          <PlusIcon size={16} /> New chat
+        <button
+          onClick={() => actions.openPersonaPicker()}
+          className="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-sibyl-accent/35 bg-sibyl-accent/[0.07] text-[13px] font-semibold text-sibyl-accent transition-colors hover:bg-sibyl-accent/15"
+        >
+          <PlusIcon size={15} /> New thread
         </button>
         <div className="relative">
-          <SearchIcon
-            size={14}
-            className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sibyl-muted"
-          />
+          <SearchIcon size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-sibyl-muted" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search conversations…"
+            placeholder="Search threads…"
             className="input h-8 w-full pl-8 text-[12.5px]"
           />
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-2 pb-2">
+      <div className="px-4 pb-2 pt-1 eyebrow">// Threads</div>
+      <div className="flex-1 overflow-y-auto px-2.5 pb-2">
         {conversations.length === 0 && (
-          <p className="px-3 py-6 text-center text-[12px] text-sibyl-muted/70">
-            No conversations yet.
-          </p>
+          <p className="px-3 py-6 text-center text-[12px] text-sibyl-muted/70">No threads yet.</p>
         )}
         {conversations.length > 0 && filtered.length === 0 && (
-          <p className="px-3 py-6 text-center text-[12px] text-sibyl-muted/70">
-            No conversations match “{query.trim()}”.
-          </p>
+          <p className="px-3 py-6 text-center text-[12px] text-sibyl-muted/70">No threads match “{query.trim()}”.</p>
         )}
         {filtered.map((c) => {
           const titleMatches = q ? c.title.toLowerCase().includes(q) : true
           const snippet =
-            q && !titleMatches
-              ? (c.messages.map((m) => matchSnippet(m.content, q)).find(Boolean) ?? null)
-              : null
+            q && !titleMatches ? (c.messages.map((m) => matchSnippet(m.content, q)).find(Boolean) ?? null) : null
           const active = c.id === activeId
+          const persona = findPersona(personas, c.personaId)
+          const turns = c.messages.filter((m) => m.role === 'user').length
+          const meta = [persona?.name ?? 'Blank', `${turns} ${turns === 1 ? 'turn' : 'turns'}`, relTime(c.updatedAt)].join(' · ')
           return (
             <div
               key={c.id}
               onClick={() => actions.selectConversation(c.id)}
-              className={`group mb-1 flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 transition-colors ${
+              className={`group relative mb-0.5 cursor-pointer rounded-md px-3 py-2.5 transition-colors ${
                 active ? 'bg-sibyl-surface-2' : 'hover:bg-sibyl-surface'
               }`}
             >
-              <ChatIcon size={15} className="shrink-0 text-sibyl-muted" />
+              {active && <span className="absolute left-0 top-2.5 bottom-2.5 w-0.5 rounded bg-sibyl-accent" />}
               {editingId === c.id ? (
                 <input
                   autoFocus
@@ -90,24 +103,25 @@ export function ConversationList() {
                       setEditingId(null)
                     }
                   }}
-                  className="input h-6 flex-1 px-1.5 py-0 text-[13px]"
+                  className="input h-6 w-full px-1.5 py-0 text-[13px]"
                 />
               ) : (
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] text-sibyl-text">{c.title}</div>
-                  {snippet && (
-                    <div className="truncate text-[11px] text-sibyl-muted/80">{snippet}</div>
-                  )}
+                <div className="min-w-0">
+                  <div className={`truncate text-[13px] ${active ? 'font-semibold text-sibyl-text' : 'font-medium text-sibyl-secondary'}`}>
+                    {c.title}
+                  </div>
+                  <div className="mt-0.5 truncate font-mono text-[10.5px] text-sibyl-muted">{meta}</div>
+                  {snippet && <div className="mt-0.5 truncate text-[11px] text-sibyl-muted/80">{snippet}</div>}
                 </div>
               )}
-              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+              <div className="absolute right-2 top-2 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
                     setEditingId(c.id)
                     setDraft(c.title)
                   }}
-                  className="rounded p-1 text-sibyl-muted hover:text-sibyl-text"
+                  className="rounded bg-sibyl-surface-2 p-1 text-sibyl-muted hover:text-sibyl-text"
                   title="Rename"
                 >
                   <EditIcon size={13} />
@@ -117,7 +131,7 @@ export function ConversationList() {
                     e.stopPropagation()
                     void actions.deleteConversation(c.id)
                   }}
-                  className="rounded p-1 text-sibyl-muted hover:text-red-300"
+                  className="rounded bg-sibyl-surface-2 p-1 text-sibyl-muted hover:text-red-300"
                   title="Delete"
                 >
                   <TrashIcon size={13} />

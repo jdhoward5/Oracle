@@ -196,6 +196,14 @@ export const AlertTriangleIcon = (p: IconProps) => (
   </Icon>
 )
 
+export const MoreVerticalIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="5" r="1" />
+    <circle cx="12" cy="12" r="1" />
+    <circle cx="12" cy="19" r="1" />
+  </Icon>
+)
+
 export const ExternalLinkIcon = (p: IconProps) => (
   <Icon {...p}>
     <path d="M15 3h6v6" />

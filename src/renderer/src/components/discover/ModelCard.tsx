@@ -1,6 +1,6 @@
 import type { HFModelSummary } from '@shared/types'
 import { descriptorTags, isNsfwModel, parseParamLabel } from '@shared/format'
-import { DownloadIcon, HeartIcon } from '../../lib/icons'
+import { DownloadIcon } from '../../lib/icons'
 
 function compact(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
@@ -15,30 +15,40 @@ export function ModelCard({ model, onClick }: { model: HFModelSummary; onClick: 
   return (
     <button
       onClick={onClick}
-      className="card group flex flex-col gap-3 p-4 text-left transition-all duration-150 hover:border-sibyl-accent/50 hover:bg-sibyl-surface-2"
+      className="group flex items-center gap-4 rounded-lg border border-sibyl-border bg-sibyl-surface p-4 text-left transition-colors duration-150 hover:border-sibyl-accent/45"
     >
-      <div className="min-w-0">
-        <div className="truncate text-[14px] font-semibold text-sibyl-text group-hover:text-white" title={name}>
-          {name}
-        </div>
-        <div className="truncate text-[12px] text-sibyl-muted">{author}</div>
-      </div>
-      <div className="flex flex-wrap gap-1.5">
-        {nsfw && <span className="chip border border-rose-500/40 text-rose-300/90">18+</span>}
-        {model.gated && <span className="chip border border-amber-500/30 text-amber-300/90">gated</span>}
-        {param && <span className="chip">{param}</span>}
-        {descriptorTags(model.tags).map((t) => (
-          <span key={t} className="chip">
-            {t}
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="truncate font-mono text-[14.5px] font-bold text-sibyl-text" title={model.id}>
+            {name}
           </span>
-        ))}
+          {param && (
+            <span className="shrink-0 rounded-full border border-sibyl-accent/30 bg-sibyl-accent/10 px-2 py-px font-mono text-[10px] text-sibyl-accent">
+              {param}
+            </span>
+          )}
+        </div>
+        <div className="mt-1 truncate text-[12.5px] text-sibyl-muted">{author}</div>
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {nsfw && (
+            <span className="rounded border border-rose-500/40 px-2 py-0.5 font-mono text-[11px] text-rose-300/90">18+</span>
+          )}
+          {model.gated && (
+            <span className="rounded border border-amber-500/30 px-2 py-0.5 font-mono text-[11px] text-amber-300/90">gated</span>
+          )}
+          {descriptorTags(model.tags).map((t) => (
+            <span key={t} className="rounded bg-sibyl-surface-2 px-2 py-0.5 font-mono text-[11px] text-sibyl-secondary">
+              {t}
+            </span>
+          ))}
+        </div>
       </div>
-      <div className="mt-auto flex items-center gap-4 text-[11.5px] text-sibyl-muted">
-        <span className="flex items-center gap-1">
-          <DownloadIcon size={13} /> {compact(model.downloads)}
-        </span>
-        <span className="flex items-center gap-1">
-          <HeartIcon size={13} /> {compact(model.likes)}
+      <div className="flex shrink-0 flex-col items-end gap-2.5">
+        <div className="font-mono text-[11px] text-sibyl-muted">
+          ↓ {compact(model.downloads)} · ♥ {compact(model.likes)}
+        </div>
+        <span className="btn-primary pointer-events-none h-9 px-4 text-[12.5px]">
+          <DownloadIcon size={14} /> View
         </span>
       </div>
     </button>

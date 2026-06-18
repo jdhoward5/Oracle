@@ -22,6 +22,18 @@ locally via `node-llama-cpp`. Stack: electron-vite + React + TS + Tailwind.
   or Windows crashes with `0xC0000409`.
 - Renderer must stay isolated: no new `ipcRenderer`/node surface; extend the
   typed bridge instead. Keep the CSP tight.
+- **Privacy: never log message/conversation content.** Conversation text, persona
+  briefs/greetings, the resolved system prompt and the user's character are
+  private, on-device data. They may only reach two sinks: the local
+  conversations store (`userData/conversations`) and a user-initiated export.
+  They must **never** be written to stdout/stderr, a hidden log file, or any
+  remote service. Don't pass a message's `content`, a persona `brief`/`greeting`,
+  `systemPrompt`/`userText`, or `userCharacter` to `console.*` — log a length or a
+  boolean instead. The renderer holds all of this in memory, so it must contain
+  **no** `console.*` at all (renderer console is forwarded to main stdout in dev).
+  `src/privacy.test.ts` enforces both rules statically; the renderer→main console
+  forwarder is dev-only (`isDev`). The app sends no telemetry and starts no crash
+  reporter.
 
 ## CUDA / GPU
 - The prebuilt CUDA backend (`@node-llama-cpp/win-x64-cuda`, llama.cpp **b8390**)

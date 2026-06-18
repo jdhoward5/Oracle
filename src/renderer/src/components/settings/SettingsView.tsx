@@ -1,83 +1,34 @@
 import { useState } from 'react'
 import { actions, uid, useStore } from '../../store'
-import type { AppSettings, GenerationProfile, SystemPromptPreset } from '@shared/types'
+import type { AppSettings, GenerationProfile } from '@shared/types'
+import { ACCENT_THEMES } from '@shared/themes'
 import { formatSpeed } from '@shared/format'
 import { Section, Slider, Toggle } from '../common/controls'
+import { Avatar } from '../persona/Avatar'
+import { PersonaEditor } from '../persona/PersonaEditor'
 import { PlusIcon, TrashIcon, CheckIcon, EditIcon } from '../../lib/icons'
 
-/** Manage reusable system-prompt presets; apply one to the global system prompt. */
-function PromptPresetsSection({ settings }: { settings: AppSettings }) {
-  const presets = settings.promptPresets
-  const [name, setName] = useState('')
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [draftName, setDraftName] = useState('')
-
-  const save = (next: SystemPromptPreset[]): void => void actions.updateSettings({ promptPresets: next })
-
-  const add = (): void => {
-    const n = name.trim()
-    if (!n) return
-    save([...presets, { id: uid(), name: n, prompt: settings.load.systemPrompt }])
-    setName('')
-  }
-
+/** Manage the persona library — the reusable characters you write with. */
+function PersonasSection({ settings }: { settings: AppSettings }) {
+  const personas = settings.personas
+  const [editor, setEditor] = useState<{ id: string | null } | null>(null)
   return (
-    <Section
-      title="Prompt presets"
-      desc="Save the current system prompt as a reusable preset, then apply it here or per-conversation."
-    >
-      {presets.length === 0 && <p className="text-[12.5px] text-sibyl-muted">No presets yet.</p>}
-      {presets.map((p) => (
-        <div key={p.id} className="flex items-center gap-2 rounded-lg border border-sibyl-border/60 px-3 py-2">
-          {editingId === p.id ? (
-            <input
-              autoFocus
-              value={draftName}
-              onChange={(e) => setDraftName(e.target.value)}
-              onBlur={() => {
-                save(presets.map((x) => (x.id === p.id ? { ...x, name: draftName.trim() || x.name } : x)))
-                setEditingId(null)
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                else if (e.key === 'Escape') setEditingId(null)
-              }}
-              className="input h-7 flex-1 px-2 py-0 text-[13px]"
-            />
-          ) : (
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[13px] text-sibyl-text">{p.name}</div>
-              <div className="truncate text-[11px] text-sibyl-muted" title={p.prompt}>
-                {p.prompt}
-              </div>
+    <Section title="Personas" desc="Reusable characters: a name, a character brief, an opening line and sampling. Pick one when starting a thread.">
+      {personas.length === 0 && <p className="text-[12.5px] text-sibyl-muted">No personas yet.</p>}
+      {personas.map((p) => (
+        <div key={p.id} className="flex items-center gap-3 rounded-lg border border-sibyl-border/60 px-3 py-2">
+          <Avatar avatar={p.avatar} size={34} glow={false} />
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[13px] font-medium text-sibyl-text">{p.name}</div>
+            <div className="truncate text-[11px] text-sibyl-muted" title={p.brief}>
+              {p.role || p.brief || 'No brief'}
             </div>
-          )}
-          <button
-            onClick={() => actions.updateSettings({ load: { ...settings.load, systemPrompt: p.prompt } })}
-            className="btn-surface shrink-0 px-2.5 py-1 text-[12px]"
-            title="Apply to the global system prompt"
-          >
-            Apply
-          </button>
-          <button
-            onClick={() => save(presets.map((x) => (x.id === p.id ? { ...x, prompt: settings.load.systemPrompt } : x)))}
-            className="btn-ghost shrink-0 px-2 py-1 text-[12px]"
-            title="Update this preset to the current system prompt"
-          >
-            <CheckIcon size={13} />
-          </button>
-          <button
-            onClick={() => {
-              setEditingId(p.id)
-              setDraftName(p.name)
-            }}
-            className="btn-ghost shrink-0 px-2 py-1 text-[12px]"
-            title="Rename"
-          >
+          </div>
+          <button onClick={() => setEditor({ id: p.id })} className="btn-ghost shrink-0 px-2 py-1 text-[12px]" title="Edit">
             <EditIcon size={13} />
           </button>
           <button
-            onClick={() => save(presets.filter((x) => x.id !== p.id))}
+            onClick={() => actions.deletePersona(p.id)}
             className="btn-ghost shrink-0 px-2 py-1 text-[12px] hover:text-red-300"
             title="Delete"
           >
@@ -85,18 +36,10 @@ function PromptPresetsSection({ settings }: { settings: AppSettings }) {
           </button>
         </div>
       ))}
-      <div className="flex gap-2">
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && add()}
-          placeholder="Name a new preset from the current system prompt…"
-          className="input flex-1"
-        />
-        <button onClick={add} disabled={!name.trim()} className="btn-primary disabled:opacity-40">
-          <PlusIcon size={15} /> Save
-        </button>
-      </div>
+      <button onClick={() => setEditor({ id: null })} className="btn-surface w-full justify-center">
+        <PlusIcon size={15} /> New persona
+      </button>
+      {editor && <PersonaEditor initialPersonaId={editor.id} onClose={() => setEditor(null)} />}
     </Section>
   )
 }
@@ -313,8 +256,9 @@ export function SettingsView() {
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-2xl px-6 py-6">
-        <h1 className="mb-5 text-xl font-semibold text-sibyl-text">Settings</h1>
+      <div className="mx-auto max-w-[720px] px-8 py-7">
+        <div className="eyebrow mb-2 text-sibyl-accent">// Settings</div>
+        <h1 className="mb-6 font-mono text-[24px] font-extrabold text-sibyl-text">Preferences</h1>
         <div className="flex flex-col gap-4">
           <Section title="Inference backend" desc="How models are accelerated. Changes apply when you next load a model.">
             <div className="flex gap-2">
@@ -360,7 +304,10 @@ export function SettingsView() {
               format={(v) => (v < 0 ? 'Auto (max)' : String(v))}
             />
             <div>
-              <label className="mb-1.5 block text-[13px] text-sibyl-text">System prompt</label>
+              <label className="mb-1.5 block text-[13px] text-sibyl-text">Character brief</label>
+              <p className="mb-1.5 text-[12px] text-sibyl-muted">
+                The default system prompt for blank threads. Personas override this per thread.
+              </p>
               <textarea
                 value={load.systemPrompt}
                 onChange={(e) => update({ load: { ...load, systemPrompt: e.target.value } })}
@@ -441,8 +388,8 @@ export function SettingsView() {
             </div>
           </Section>
 
+          <PersonasSection settings={settings} />
           <GenerationProfilesSection settings={settings} />
-          <PromptPresetsSection settings={settings} />
 
           <Section title="Downloads" desc="Integrity checks applied to models you download.">
             <Toggle
@@ -500,7 +447,7 @@ export function SettingsView() {
             </div>
           </Section>
 
-          <Section title="Appearance">
+          <Section title="Appearance" desc="Pick an accent palette — it recolors buttons, the assistant caret, your messages and the composer.">
             <div className="flex gap-2">
               {(['dark', 'light'] as const).map((t) => (
                 <button
@@ -515,6 +462,32 @@ export function SettingsView() {
                   {t}
                 </button>
               ))}
+            </div>
+            <div>
+              <label className="mb-2 block text-[13px] text-sibyl-text">Accent theme</label>
+              <div className="flex flex-wrap gap-2">
+                {ACCENT_THEMES.map((t) => {
+                  const active = settings.accent === t.key
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => update({ accent: t.key })}
+                      title={t.label}
+                      className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-[12.5px] font-medium transition-colors ${
+                        active
+                          ? 'border-sibyl-accent/60 bg-sibyl-accent/10 text-sibyl-text'
+                          : 'border-sibyl-border text-sibyl-muted hover:text-sibyl-text'
+                      }`}
+                    >
+                      <span className="flex gap-1">
+                        <span className="h-3 w-3 rounded-[3px]" style={{ background: t.accent }} />
+                        <span className="h-3 w-3 rounded-[3px]" style={{ background: t.accent2 }} />
+                      </span>
+                      {t.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
           </Section>
 

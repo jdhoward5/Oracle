@@ -21,24 +21,20 @@ export function DiscoverView() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-sibyl-border/60 px-6 py-4">
-        <h1 className="mb-1 text-xl font-semibold text-sibyl-text">Discover models</h1>
-        <p className="mb-4 text-[13px] text-sibyl-muted">
-          Browse GGUF chat models from Hugging Face — search by name, author, or exact repo id.
-          Everything you download runs locally.
-        </p>
+      <div className="border-b border-sibyl-border/60 px-8 py-5">
+        <div className="eyebrow mb-3 text-sibyl-accent">// Discover · Hugging Face</div>
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
-            <SearchIcon size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sibyl-muted" />
+            <SearchIcon size={16} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sibyl-muted" />
             <input
               value={query}
               onChange={(e) => actions.setDiscoverQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && actions.search()}
-              placeholder="Search models — e.g. Llama, Qwen, Mistral…"
-              className="input pl-9"
+              placeholder="Search models — e.g. roleplay, Llama, Qwen…"
+              className="input h-[44px] pl-10"
             />
           </div>
-          <button onClick={() => actions.search()} className="btn-primary h-[38px]">
+          <button onClick={() => actions.search()} className="btn-primary h-[44px]">
             Search
           </button>
         </div>
@@ -47,8 +43,10 @@ export function DiscoverView() {
             <button
               key={s.key}
               onClick={() => actions.setDiscoverSort(s.key)}
-              className={`rounded-lg px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                sort === s.key ? 'bg-sibyl-surface-2 text-sibyl-text' : 'text-sibyl-muted hover:text-sibyl-text'
+              className={`rounded-md px-3 py-1.5 font-mono text-[11.5px] transition-colors ${
+                sort === s.key
+                  ? 'border border-sibyl-accent/35 bg-sibyl-accent/10 text-sibyl-accent'
+                  : 'border border-sibyl-border text-sibyl-secondary hover:text-sibyl-text'
               }`}
             >
               {s.label}
@@ -57,16 +55,16 @@ export function DiscoverView() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto px-8 py-5">
         {error && (
           <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-[13px] text-red-200">
             {error}
           </div>
         )}
         {loading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 9 }).map((_, i) => (
-              <div key={i} className="skeleton h-32 rounded-xl" />
+          <div className="flex flex-col gap-2.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="skeleton h-[84px] rounded-lg" />
             ))}
           </div>
         ) : results.length === 0 ? (
@@ -75,7 +73,7 @@ export function DiscoverView() {
             <p className="text-[14px]">No models found. Try another search.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="flex flex-col gap-2.5">
             {results.map((m) => (
               <ModelCard key={m.id} model={m} onClick={() => actions.openModelDetail(m.id)} />
             ))}

@@ -3,7 +3,6 @@ import type { ChatMessage } from '@shared/types'
 import { actions, useStore } from '../../store'
 import { Markdown } from '../../lib/markdown'
 import {
-  SparkIcon,
   CopyIcon,
   CheckIcon,
   EditIcon,
@@ -20,16 +19,20 @@ interface Props {
   isLast?: boolean
   /** True when this message is the current in-conversation find match. */
   highlighted?: boolean
+  /** Speaker label for assistant turns (persona name, or "Sibyl"). */
+  speaker?: string
 }
 
-const HIGHLIGHT = 'rounded-2xl ring-2 ring-sibyl-accent/70 ring-offset-2 ring-offset-sibyl-bg'
+const HIGHLIGHT = 'rounded-lg ring-2 ring-sibyl-accent/70 ring-offset-4 ring-offset-sibyl-bg'
+
+const LABEL = 'font-mono text-[11px] uppercase tracking-[0.08em]'
 
 const ACTION_BASE =
   'flex items-center gap-1 text-[11px] text-sibyl-muted transition-colors disabled:cursor-not-allowed disabled:opacity-40'
 const ACTION = `${ACTION_BASE} hover:text-sibyl-text`
 const ACTION_DANGER = `${ACTION_BASE} hover:text-red-300`
 
-function MessageImpl({ message, streaming, isLast = false, highlighted = false }: Props) {
+function MessageImpl({ message, streaming, isLast = false, highlighted = false, speaker = 'Sibyl' }: Props) {
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -60,49 +63,49 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
     void actions.editAndResend(message.id, draft)
   }
 
-  // --- user message --------------------------------------------------------
+  // --- user message — left periwinkle inset, not a bubble ------------------
   if (isUser) {
     if (editing) {
       return (
-        <div className="flex justify-end animate-fade-in">
-          <div className="w-full max-w-[80%]">
-            <textarea
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  saveEdit()
-                } else if (e.key === 'Escape') {
-                  setEditing(false)
-                }
-              }}
-              rows={2}
-              className="input w-full resize-none text-[15px]"
-            />
-            <div className="mt-1.5 flex justify-end gap-2">
-              <button onClick={() => setEditing(false)} className="btn-ghost px-2.5 py-1 text-[12px]">
-                Cancel
-              </button>
-              <button
-                onClick={saveEdit}
-                disabled={!draft.trim()}
-                className="btn-primary px-2.5 py-1 text-[12px] disabled:opacity-40"
-              >
-                Save & resend
-              </button>
-            </div>
+        <div className="animate-fade-in border-l-2 border-sibyl-accent-2 pl-4">
+          <div className={`${LABEL} mb-1.5 text-sibyl-accent-2`}>You</div>
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                saveEdit()
+              } else if (e.key === 'Escape') {
+                setEditing(false)
+              }
+            }}
+            rows={2}
+            className="input w-full resize-none text-[15px]"
+          />
+          <div className="mt-1.5 flex gap-2">
+            <button
+              onClick={saveEdit}
+              disabled={!draft.trim()}
+              className="btn-primary px-2.5 py-1 text-[12px] disabled:opacity-40"
+            >
+              Save & resend
+            </button>
+            <button onClick={() => setEditing(false)} className="btn-ghost px-2.5 py-1 text-[12px]">
+              Cancel
+            </button>
           </div>
         </div>
       )
     }
     return (
-      <div className={`group flex flex-col items-end animate-fade-in ${highlighted ? HIGHLIGHT : ''}`}>
-        <div className="max-w-[80%] rounded-2xl rounded-br-md bg-gradient-to-br from-sibyl-accent/90 to-sibyl-accent-2/90 px-4 py-2.5 text-[15px] leading-relaxed text-white shadow-lg shadow-sibyl-accent/10">
-          <p className="selectable whitespace-pre-wrap">{message.content}</p>
-        </div>
-        <div className="mt-1.5 flex items-center gap-3 opacity-0 transition-opacity group-hover:opacity-100">
+      <div className={`group animate-fade-in border-l-2 border-sibyl-accent-2 pl-4 ${highlighted ? HIGHLIGHT : ''}`}>
+        <div className={`${LABEL} mb-1.5 text-sibyl-accent-2`}>You</div>
+        <p className="selectable whitespace-pre-wrap text-[15.5px] italic leading-[1.7] text-sibyl-secondary">
+          {message.content}
+        </p>
+        <div className="mt-2 flex items-center gap-3 opacity-0 transition-opacity group-hover:opacity-100">
           <button onClick={copy} className={ACTION}>
             {copied ? <CheckIcon size={12} /> : <CopyIcon size={12} />}
             {copied ? 'Copied' : 'Copy'}
@@ -121,16 +124,14 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false }
     )
   }
 
-  // --- assistant message ---------------------------------------------------
+  // --- assistant message — attributed prose --------------------------------
   return (
-    <div className={`group flex gap-3 animate-fade-in ${highlighted ? HIGHLIGHT : ''}`}>
-      <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-sibyl-accent to-sibyl-accent-2 text-white shadow-md shadow-sibyl-accent/30">
-        <SparkIcon size={15} />
-      </div>
-      <div className="min-w-0 flex-1">
+    <div className={`group animate-fade-in ${highlighted ? HIGHLIGHT : ''}`}>
+      <div className={`${LABEL} mb-2 text-sibyl-accent`}>{speaker}</div>
+      <div className="min-w-0">
         {message.content ? (
           <div className={streaming ? 'caret-wrap' : ''}>
-            <Markdown source={message.content} />
+            <Markdown source={message.content} tintQuotes />
             {streaming && <span className="caret" />}
           </div>
         ) : message.error ? null : (

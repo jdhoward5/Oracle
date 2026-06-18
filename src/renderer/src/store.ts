@@ -10,10 +10,23 @@ import type {
   HFModelDetail,
   HFModelSummary,
   InstalledModel,
-  UpdateStatus
+  Persona,
+  UpdateStatus,
+  UserCharacter
 } from '@shared/types'
 import type { AppInfo } from '@shared/ipc'
 import type { ExportFormat } from '@shared/export'
+import { getAccentTheme, hexToRgbChannels } from '@shared/themes'
+import { findPersona } from '@shared/personas'
+
+/** Paint the selected accent theme onto documentElement as CSS variables. */
+function applyAccentTheme(key: string | null | undefined): void {
+  const t = getAccentTheme(key)
+  const root = document.documentElement.style
+  root.setProperty('--sibyl-accent', hexToRgbChannels(t.accent))
+  root.setProperty('--sibyl-accent-2', hexToRgbChannels(t.accent2))
+  root.setProperty('--sibyl-glow', hexToRgbChannels(t.glow))
+}
 
 export type View = 'chat' | 'discover' | 'models' | 'settings'
 export type SortKey = 'trending' | 'downloads' | 'likes'
@@ -48,6 +61,8 @@ export interface AppState {
   /** Latest auto-update status, or null before the first snapshot arrives. */
   update: UpdateStatus | null
   toast: { id: number; kind: 'info' | 'error' | 'success'; message: string } | null
+  /** True while the new-thread persona picker is shown over the chat column. */
+  personaPickerOpen: boolean
 }
 
 const initialState: AppState = {
@@ -80,7 +95,8 @@ const initialState: AppState = {
   compacting: false,
   streamStats: null,
   update: null,
-  toast: null
+  toast: null,
+  personaPickerOpen: false
 }
 
 let state: AppState = initialState
@@ -191,7 +207,16 @@ async function runTurn(
 
 export const actions = {
   setView(view: View): void {
-    setState({ view })
+    // Leaving (or re-entering) a view dismisses the new-thread picker overlay.
+    setState({ view, personaPickerOpen: false })
+  },
+
+  /** Show the new-thread persona picker over the chat column. */
+  openPersonaPicker(): void {
+    setState({ personaPickerOpen: true, view: 'chat' })
+  },
+  closePersonaPicker(): void {
+    setState({ personaPickerOpen: false })
   },
 
   async init(): Promise<void> {
@@ -227,6 +252,7 @@ export const actions = {
     })
 
     if (state.settings?.theme) document.documentElement.classList.toggle('light', state.settings.theme === 'light')
+    applyAccentTheme(state.settings?.accent)
 
     // Pull an initial context snapshot for the opening conversation.
     void actions.refreshContextUsage()
@@ -352,27 +378,77 @@ export const actions = {
   },
 
   // --- chat ---------------------------------------------------------------
-  newConversation(): string {
+  /**
+   * Start a thread, optionally written with a persona. When the persona has a
+   * greeting, it's seeded as the opening assistant message so the scene starts
+   * in-character.
+   */
+  newConversation(personaId?: string): string {
+    const persona = findPersona(state.settings?.personas, personaId)
+    const messages: ChatMessage[] = []
+    if (persona?.greeting?.trim()) {
+      messages.push({ id: uid(), role: 'assistant', content: persona.greeting.trim(), createdAt: now() })
+    }
     const conv: Conversation = {
       id: uid(),
-      title: 'New chat',
+      title: 'New thread',
       modelId: state.engine.modelId,
-      messages: [],
+      messages,
+      personaId: persona?.id,
       createdAt: now(),
       updatedAt: now()
     }
     setState((s) => ({
       conversations: [conv, ...s.conversations],
       activeConversationId: conv.id,
-      view: 'chat'
+      view: 'chat',
+      personaPickerOpen: false
     }))
     persist(conv)
     void actions.refreshContextUsage()
     return conv.id
   },
 
+  // --- personas -----------------------------------------------------------
+  /** Create or update a persona in the library. */
+  savePersona(persona: Persona): void {
+    const personas = state.settings?.personas ?? []
+    const exists = personas.some((p) => p.id === persona.id)
+    const next = exists ? personas.map((p) => (p.id === persona.id ? persona : p)) : [...personas, persona]
+    void actions.updateSettings({ personas: next })
+  },
+
+  /** Remove a persona from the library. Threads referencing it fall back to the global prompt. */
+  deletePersona(id: string): void {
+    const personas = (state.settings?.personas ?? []).filter((p) => p.id !== id)
+    void actions.updateSettings({ personas })
+  },
+
+  /** Point a thread at a persona (or clear it). Rebuilds the engine session. */
+  async setConversationPersona(id: string, personaId: string | null): Promise<void> {
+    const conv = state.conversations.find((c) => c.id === id)
+    if (!conv) return
+    const updated = { ...conv, personaId: personaId ?? undefined, updatedAt: now() }
+    updateConversation(id, () => updated)
+    persist(updated)
+    await window.sibyl.chat.invalidateSession(id)
+    void actions.refreshContextUsage()
+  },
+
+  /** Set (or clear) the writer's own character for a thread. Rebuilds the session. */
+  async setUserCharacter(id: string, uc: UserCharacter | undefined): Promise<void> {
+    const conv = state.conversations.find((c) => c.id === id)
+    if (!conv) return
+    const clean = uc && (uc.name.trim() || uc.description.trim()) ? uc : undefined
+    const updated = { ...conv, userCharacter: clean, updatedAt: now() }
+    updateConversation(id, () => updated)
+    persist(updated)
+    await window.sibyl.chat.invalidateSession(id)
+    void actions.refreshContextUsage()
+  },
+
   selectConversation(id: string): void {
-    setState({ activeConversationId: id, view: 'chat' })
+    setState({ activeConversationId: id, view: 'chat', personaPickerOpen: false })
     void actions.refreshContextUsage()
   },
 
@@ -680,6 +756,7 @@ export const actions = {
     if (res.ok && res.data) {
       setState({ settings: res.data })
       if (patch.theme) document.documentElement.classList.toggle('light', patch.theme === 'light')
+      if (patch.accent) applyAccentTheme(patch.accent)
     } else {
       toast(res.error ?? 'Failed to save settings', 'error')
     }

@@ -4,21 +4,27 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'Segoe UI', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'Cascadia Code', 'Consolas', 'monospace']
+        sans: ['Geist Variable', 'Inter', 'Segoe UI', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono Variable', 'JetBrains Mono', 'Cascadia Code', 'Consolas', 'monospace']
       },
       colors: {
-        // Sibyl palette — deep indigo night with an arcane violet accent.
+        // Sibyl palette — Eagle dark/OLED surfaces with a themeable accent.
         sibyl: {
-          bg: '#0b0c14',
-          surface: '#13141f',
-          'surface-2': '#1b1d2b',
-          border: '#262a3d',
-          muted: '#8b8fa8',
-          text: '#e7e9f3',
-          accent: '#8b7cff',
-          'accent-2': '#5b8dff',
-          glow: '#a78bfa'
+          bg: '#000000', // void
+          surface: '#0a0a0b',
+          'surface-2': '#141416', // raised
+          sunken: '#050506',
+          border: '#23232a',
+          muted: '#7a7a85',
+          faint: '#4a4a52',
+          secondary: '#b8b8c0',
+          text: '#f5f5f7',
+          // Accent trio is driven by CSS variables (set per accent theme) so a
+          // theme switch repaints every `sibyl-accent` utility. Channels are
+          // space-separated RGB so opacity modifiers (e.g. /20) keep working.
+          accent: 'rgb(var(--sibyl-accent) / <alpha-value>)',
+          'accent-2': 'rgb(var(--sibyl-accent-2) / <alpha-value>)',
+          glow: 'rgb(var(--sibyl-glow) / <alpha-value>)'
         }
       },
       keyframes: {

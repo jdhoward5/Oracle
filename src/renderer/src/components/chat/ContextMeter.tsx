@@ -1,16 +1,15 @@
-import { actions, useStore } from '../../store'
+import { useStore } from '../../store'
 import { contextPercent, formatTokens, levelColor } from '@shared/context'
-import { CompressIcon, LayersIcon } from '../../lib/icons'
+import { LayersIcon } from '../../lib/icons'
 
 /**
- * Compact header widget: a fill bar showing how much of the context window the
- * active conversation occupies, plus a one-click "compact" action. Colour and
- * tooltip escalate as the window fills.
+ * Compact, display-only header widget: a fill bar showing how much of the context
+ * window the active conversation occupies. Colour + tooltip escalate as it fills.
+ * The manual "compact" action lives in the header overflow menu (and the overflow
+ * banner) so this stays a glanceable readout.
  */
 export function ContextMeter() {
   const usage = useStore((s) => s.contextUsage)
-  const compacting = useStore((s) => s.compacting)
-  const generating = useStore((s) => s.engine.state === 'generating')
   const hasModel = useStore((s) => Boolean(s.engine.modelId))
 
   if (!hasModel || !usage || usage.contextSize <= 0) return null
@@ -26,7 +25,7 @@ export function ContextMeter() {
   return (
     <div className="no-drag flex items-center gap-2" title={tip}>
       <LayersIcon size={13} className={text} />
-      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-sibyl-surface-2">
+      <div className="h-1.5 w-16 overflow-hidden rounded-full bg-sibyl-surface-2">
         <div
           className={`h-full rounded-full transition-all duration-500 ${bar}`}
           style={{ width: `${Math.max(2, pct)}%` }}
@@ -35,15 +34,6 @@ export function ContextMeter() {
       <span className={`font-mono text-[11px] tabular-nums ${text}`}>
         {formatTokens(usage.usedTokens)}/{formatTokens(usage.contextSize)}
       </span>
-      <button
-        onClick={() => void actions.compact()}
-        disabled={compacting || generating}
-        className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] text-sibyl-muted transition-colors hover:bg-sibyl-surface-2 hover:text-sibyl-text disabled:opacity-40"
-        title="Summarize older messages to free up context"
-      >
-        <CompressIcon size={13} />
-        {compacting ? 'Compacting…' : 'Compact'}
-      </button>
     </div>
   )
 }

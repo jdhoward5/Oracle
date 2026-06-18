@@ -17,6 +17,8 @@ interface Props {
 export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
   const settings = useStore((s) => s.settings)
   const [systemPrompt, setSystemPrompt] = useState(conversation.overrides?.systemPrompt ?? '')
+  const [ucName, setUcName] = useState(conversation.userCharacter?.name ?? '')
+  const [ucDesc, setUcDesc] = useState(conversation.userCharacter?.description ?? '')
   const [genOn, setGenOn] = useState(Boolean(conversation.overrides?.generation))
   const [gen, setGen] = useState<GenerationOptions>(
     conversation.overrides?.generation ?? settings?.generation ?? {
@@ -36,23 +38,28 @@ export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
       systemPrompt: systemPrompt.trim() || undefined,
       generation: genOn ? gen : undefined
     })
+    void actions.setUserCharacter(
+      conversation.id,
+      ucName.trim() || ucDesc.trim() ? { name: ucName.trim(), description: ucDesc.trim() } : undefined
+    )
     onClose()
   }
 
   const clearAll = (): void => {
     void actions.setConversationOverrides(conversation.id, undefined)
+    void actions.setUserCharacter(conversation.id, undefined)
     onClose()
   }
 
   const setG = (patch: Partial<GenerationOptions>): void => setGen((g) => ({ ...g, ...patch }))
 
   return (
-    <div className="no-drag fixed inset-0 z-40 flex justify-end">
+    <div className="no-drag fixed bottom-0 left-0 right-0 top-10 z-40 flex justify-end">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose} />
       <div className="relative flex h-full w-full max-w-md animate-fade-in flex-col border-l border-sibyl-border bg-sibyl-surface shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-sibyl-border/60 p-5">
           <div className="min-w-0">
-            <h2 className="text-lg font-semibold text-sibyl-text">Conversation settings</h2>
+            <h2 className="text-lg font-semibold text-sibyl-text">Thread settings</h2>
             <p className="truncate text-[12.5px] text-sibyl-muted" title={conversation.title}>
               {conversation.title}
             </p>
@@ -67,18 +74,18 @@ export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
             {/* System prompt override */}
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-[13px] font-medium text-sibyl-text">System prompt</label>
-                {settings.promptPresets.length > 0 && (
+                <label className="text-[13px] font-medium text-sibyl-text">Character brief override</label>
+                {settings.personas.length > 0 && (
                   <select
                     value=""
                     onChange={(e) => {
-                      const p = settings.promptPresets.find((x) => x.id === e.target.value)
-                      if (p) setSystemPrompt(p.prompt)
+                      const p = settings.personas.find((x) => x.id === e.target.value)
+                      if (p) setSystemPrompt(p.brief)
                     }}
                     className="input h-7 w-auto px-2 py-0 text-[12px]"
                   >
-                    <option value="">Apply preset…</option>
-                    {settings.promptPresets.map((p) => (
+                    <option value="">Copy from persona…</option>
+                    {settings.personas.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.name}
                       </option>
@@ -90,7 +97,32 @@ export function ConversationSettingsDrawer({ conversation, onClose }: Props) {
                 value={systemPrompt}
                 onChange={(e) => setSystemPrompt(e.target.value)}
                 rows={4}
-                placeholder={`Leave empty to use the global system prompt:\n${settings.load.systemPrompt}`}
+                placeholder={
+                  conversation.personaId
+                    ? 'Leave empty to use this thread’s persona brief.'
+                    : `Leave empty to use the global character brief:\n${settings.load.systemPrompt}`
+                }
+                className="input resize-none text-[13px]"
+              />
+            </div>
+
+            {/* Your character (user persona) */}
+            <div>
+              <label className="mb-1.5 block text-[13px] font-medium text-sibyl-text">Your character</label>
+              <p className="mb-2 text-[12px] text-sibyl-muted">
+                Optional — who you play. Injected as “The user plays …”.
+              </p>
+              <input
+                value={ucName}
+                onChange={(e) => setUcName(e.target.value)}
+                placeholder="Name (e.g. a wandering courier)"
+                className="input mb-2 text-[13px]"
+              />
+              <textarea
+                value={ucDesc}
+                onChange={(e) => setUcDesc(e.target.value)}
+                rows={2}
+                placeholder="A short description of your character (optional)."
                 className="input resize-none text-[13px]"
               />
             </div>

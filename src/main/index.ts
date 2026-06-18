@@ -213,7 +213,16 @@ async function runSmoke(win: BrowserWindow): Promise<void> {
         true
       )) as { text?: string; text2?: string; error?: string; stats?: unknown }
 
-      console.log('[smoke] in-app chat result:', JSON.stringify(result))
+      // Privacy invariant: never log message/response text — only status + lengths.
+      console.log(
+        '[smoke] in-app chat result:',
+        JSON.stringify({
+          ok: !result.error && Boolean(result.text?.trim()) && Boolean(result.text2?.trim()),
+          error: result.error,
+          text1Len: result.text?.length ?? 0,
+          text2Len: result.text2?.length ?? 0
+        })
+      )
       await shot('sibyl-smoke-chat.png')
       if (result.error || !result.text?.trim() || !result.text2?.trim()) {
         console.error('[smoke] CHAT FAILED')

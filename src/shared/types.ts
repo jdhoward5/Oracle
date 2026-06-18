@@ -1,6 +1,8 @@
 // Shared domain types used by main, preload and renderer.
 // Keep this file free of any runtime/node imports — it must be safe to load in the renderer.
 
+import type { AccentThemeKey } from './themes'
+
 export interface HFModelSummary {
   id: string // e.g. "bartowski/Llama-3.2-3B-Instruct-GGUF"
   author: string
@@ -137,6 +139,41 @@ export interface ConversationOverrides {
   generation?: GenerationOptions
 }
 
+/** A monogram + 2-colour gradient avatar (image avatars are a future option). */
+export interface PersonaAvatar {
+  /** 1–2 character monogram shown in the circle. */
+  monogram: string
+  /** Two-stop gradient `[from, to]` (hex). */
+  gradient: [string, string]
+}
+
+/**
+ * A reusable character you roleplay/write with. Subsumes the old `promptPresets`
+ * (name + brief) and carries voice, an opening line, an avatar and per-persona
+ * sampling defaults. A conversation references one via `personaId`.
+ */
+export interface Persona {
+  id: string
+  name: string
+  /** One-line role subtitle, e.g. "Caravan guard". */
+  role: string
+  /** The system prompt, surfaced to writers as the "Character brief". */
+  brief: string
+  /** Optional opening assistant message seeded into a fresh thread. */
+  greeting?: string
+  avatar: PersonaAvatar
+  /** Small cosmetic voice chips, e.g. ["3rd-person", "present"]. */
+  voiceTags: string[]
+  /** Per-persona sampling defaults; falls back to the global generation options. */
+  generation?: GenerationOptions
+}
+
+/** The writer's own character, injected into the prompt as "The user plays …". */
+export interface UserCharacter {
+  name: string
+  description: string
+}
+
 export interface Conversation {
   id: string
   title: string
@@ -148,6 +185,10 @@ export interface Conversation {
   compaction?: CompactionInfo
   /** Per-conversation overrides of the global system prompt / generation params. */
   overrides?: ConversationOverrides
+  /** The persona (from `settings.personas`) this thread is written with, if any. */
+  personaId?: string
+  /** The writer's own character for this thread (optional). */
+  userCharacter?: UserCharacter
 }
 
 export interface GenerationOptions {
@@ -243,6 +284,8 @@ export interface AppSettings {
   load: Omit<LoadOptions, 'systemPrompt'> & { systemPrompt: string }
   context: ContextSettings
   theme: 'dark' | 'light'
+  /** Accent palette applied to the chat surface (buttons, caret, user voice). */
+  accent: AccentThemeKey
   /** Preferred GPU backend; 'auto' lets the engine decide. */
   gpu: 'auto' | 'cuda' | 'vulkan' | 'cpu'
   /**
@@ -251,7 +294,12 @@ export interface AppSettings {
    * check runs. The size check always runs regardless.
    */
   verifyDownloads: boolean
-  /** Reusable named system prompts the user can apply globally or per-conversation. */
+  /** The persona library — reusable characters to write with. */
+  personas: Persona[]
+  /**
+   * Legacy reusable system prompts. Superseded by `personas` (migrated on first
+   * load); still read for one version for back-compat.
+   */
   promptPresets: SystemPromptPreset[]
   /** Reusable named generation-parameter bundles (built-ins + user-defined). */
   generationProfiles: GenerationProfile[]
