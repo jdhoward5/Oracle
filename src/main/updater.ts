@@ -92,8 +92,14 @@ class Updater extends EventEmitter {
    */
   async install(): Promise<void> {
     if (!app.isPackaged) return
+    // Dispose the GPU *while the app is still healthy*, so the imminent quit has
+    // nothing left to tear down — disposing during exit is what risks a stuck
+    // process that holds the app's files open and trips the installer's locked-
+    // file "Sibyl cannot be closed" retries. Bounded: never let a slow/stuck
+    // dispose block the install. Anything we don't reclaim, the OS does on exit,
+    // and the installer waits for the process to fully go (see build/installer.nsh).
     try {
-      await teardownGpu()
+      await Promise.race([teardownGpu(), new Promise<void>((resolve) => setTimeout(resolve, 6000))])
     } catch {
       /* teardownGpu swallows its own errors; never block the install on it */
     }
