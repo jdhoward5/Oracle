@@ -60,10 +60,35 @@ locally via `node-llama-cpp`. Stack: electron-vite + React + TS + Tailwind.
   same thread. Must stay set before libuv inits its pool. The engine also enables
   `flashAttention` (gemma4 has per-layer KV; avoids a padded-V CUDA path).
 - Packaging (`electron-builder.yml`) drops `win-x64-cuda-ext` (~440 MB, very-old
-  archs) and `win-arm64`. **Ships** the custom build's runtime output only
-  (`localBuilds/*/Release` + `buildDone.status`), dropping its ~400 MB from-source
-  tree (`llama.cpp/`, CMake/MSBuild scratch, the duplicate `bin/`). Kept prebuilts:
+  archs), `win-arm64`, and the top-level `node-llama-cpp/llama/llama.cpp` **source**
+  checkout (~153 MB — runtime needs only the compiled output; its deep `tools/ui`
+  paths also overflow NuGet's MAX_PATH). **Ships** the custom build's runtime output
+  only (`localBuilds/*/Release` + `buildDone.status`), dropping its ~400 MB
+  from-source tree (CMake/MSBuild scratch, the duplicate `bin/`). Kept prebuilts:
   `win-x64-cuda` + `win-x64` (CPU) + `win-x64-vulkan`.
+
+## Packaging & auto-update (Squirrel.Windows)
+- We **do not** use NSIS or electron-updater (NSIS overwrites the running app in
+  place → deadlocks on our GPU/CUDA file handles, the "Sibyl cannot be closed"
+  bug). Instead: **Squirrel.Windows** (the Slack/Discord model) installs each
+  version side-by-side and applies on restart — never overwriting the running
+  binary, so updates never lock or need to kill the app.
+- Build: `npm run dist` = `electron-builder --win --dir` (packaging/trimming only)
+  → `scripts/squirrel.mjs` (electron-winstaller) wraps `release/<v>/win-unpacked`
+  into `release/<v>/squirrel/`: `SibylSetup.exe` + `Sibyl-<v>-full.nupkg` +
+  `RELEASES`. squirrel.mjs copies the repo `LICENSE` into the dir (nuspec needs it)
+  and pins a short `%TEMP%` (`C:\sqtmp`) to stay under MAX_PATH.
+- Updater: `src/main/updater.ts` uses Electron's **native `autoUpdater`** (which is
+  Squirrel) with `setFeedURL` → `github.com/jdhoward5/Sibyl/releases/latest/download`
+  (the public releases serve as the feed — no server). Squirrel auto-downloads on
+  `checkForUpdates()`; there's no manual download/progress. `electron-squirrel-startup`
+  (top of `index.ts`) handles the install/uninstall shortcut events.
+- The app is **unsigned** (so the SmartScreen "unknown publisher" warning stays;
+  `update.electronjs.org` — which needs signing — is therefore not used). Releases
+  must publish `--latest` (the feed resolves to GitHub's "Latest" release).
+- Installs per-user to `%LOCALAPPDATA%\Sibyl` (silent, no folder picker). userData
+  stays at `%APPDATA%\sibyl` (`app.getName()` = `Sibyl`), so models/conversations
+  carry across updates.
 - NOTE: in a sandboxed *node* CLI the binding self-test can fail (child-process
   restriction) and fall back to CPU; it works fine in real Electron. Verify GPU via
   the packaged app, not a bare `node` invocation.
