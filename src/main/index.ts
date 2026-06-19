@@ -260,8 +260,8 @@ app.whenReady().then(() => {
   createWindow()
 
   // Check GitHub for a newer release shortly after launch (packaged builds only;
-  // electron-updater is inert when unpackaged). Best-effort — failures surface as
-  // an `error` status in the Updates UI, never as an unhandled rejection.
+  // the Squirrel updater is inert when unpackaged). Squirrel auto-downloads if one
+  // is found. Best-effort — failures surface as an `error` status in the Updates UI.
   if (app.isPackaged) {
     setTimeout(() => void checkForUpdates(), 4000)
   }

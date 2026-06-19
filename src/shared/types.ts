@@ -324,13 +324,13 @@ export interface EngineStatus {
 
 /**
  * Auto-update state, broadcast main → renderer. A single snapshot the renderer
- * renders the Updates UI from; mirrors the electron-updater lifecycle.
+ * renders the Updates UI from; mirrors the Squirrel (native autoUpdater) lifecycle.
  *  - `idle`         no check has run yet this session
  *  - `checking`     a check is in flight
- *  - `available`    a newer release exists (not yet downloaded)
+ *  - `available`    a newer release exists (Squirrel auto-downloads it)
  *  - `not-available` the running build is the latest
- *  - `downloading`  the installer is being fetched (manual, user-initiated)
- *  - `downloaded`   the installer is ready; a restart will install it
+ *  - `downloading`  Squirrel is fetching the update package (automatic)
+ *  - `downloaded`   the update is staged; a restart will apply it
  *  - `error`        the last check/download failed
  *  - `dev-disabled` running unpackaged (dev) — updates are unavailable
  */
