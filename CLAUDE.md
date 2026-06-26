@@ -235,6 +235,23 @@ locally via `node-llama-cpp`. Stack: electron-vite + React + TS + Tailwind.
   engine serializes them (one beat done, one rejected — no concurrent-prompt crash).
   Pass `--user-data-dir=<tmp>` to keep it off your real personas/conversations.
 
+## Packaging size (don't ship build junk)
+- `electron-builder.yml`'s `files` `out/**/*` include does **not** act as an
+  allowlist — electron-builder packs the **whole project root** and only the `!`
+  patterns trim it. Those patterns are honored **only** in the `**/`-prefixed form
+  (`!**/release/**`), not root-relative (`!release/**` is silently a no-op).
+- electron-builder auto-excludes only the **current** output dir (`release/${version}`),
+  so a leftover `release/<old version>` build (a whole prior app, ~650 MB) gets
+  packed into `app.asar`. `!**/release/**` handles it; also clean stale `release/*`.
+- **`.smoke-models/` (the `npm run smoke` GGUF cache, ~400 MB) can't be glob-excluded**
+  — it's a **dotdir**, and electron-builder's matcher won't descend a leading-dot
+  segment. The release scripts run `npm run smoke` before `dist`, so it's present at
+  package time: **move/remove `.smoke-models` before packaging** (the release flow
+  should relocate it and restore after). Symptom of a regression: a ~1 GB+ artifact.
+- Inspect what's actually packed: `node -e "const a=require('@electron/asar');…"`
+  on `app.asar` (sum `getRawHeader` sizes) — a healthy mac `.app` is ~870 MB
+  uncompressed → ~190 MB dmg.
+
 ## npm audit / security
 - **Never run `npm audit fix --force`** here — it blindly bumps Electron/Vite/
   electron-vite across breaking majors and still doesn't resolve the findings.
