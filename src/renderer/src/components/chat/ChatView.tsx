@@ -3,6 +3,7 @@ import type { Conversation, Persona } from '@shared/types'
 import { actions, useStore } from '../../store'
 import { formatTokens } from '@shared/context'
 import { findPersona } from '@shared/personas'
+import { isScene, sceneCast, nextSpeakerId } from '@shared/scene'
 import { ConversationList } from './ConversationList'
 import { Message } from './Message'
 import { Composer } from './Composer'
@@ -20,7 +21,12 @@ import {
   EditIcon,
   ChevronRight,
   MoreVerticalIcon,
-  XIcon
+  XIcon,
+  PlusIcon,
+  PlayIcon,
+  PauseIcon,
+  StepForwardIcon,
+  UsersIcon
 } from '../../lib/icons'
 
 /** Banner shown when the next reply may not fit the remaining context window. */
@@ -212,6 +218,171 @@ function PersonaStrip({
   )
 }
 
+/** A cast member chip — click to make them speak next; ✕ to drop from the cast. */
+function CastChip({
+  persona,
+  isNext,
+  disabled,
+  onSpeak,
+  onRemove
+}: {
+  persona: Persona
+  isNext: boolean
+  disabled: boolean
+  onSpeak: () => void
+  onRemove: () => void
+}) {
+  const color = persona.avatar.gradient[0]
+  return (
+    <div
+      className={`group/chip relative flex shrink-0 items-center gap-1.5 rounded-full border py-1 pl-1 pr-2 transition-colors ${
+        isNext ? 'border-sibyl-accent/60 bg-sibyl-accent/[0.08]' : 'border-sibyl-border hover:border-sibyl-accent/40'
+      }`}
+    >
+      <button
+        onClick={onSpeak}
+        disabled={disabled}
+        title={`${persona.name} speaks next`}
+        className="no-drag flex items-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <Avatar avatar={persona.avatar} size={24} glow={false} ring={isNext ? color : undefined} />
+        <span className="max-w-[88px] truncate font-mono text-[12px] font-semibold text-sibyl-text">
+          {persona.name.split(/\s+/)[0]}
+        </span>
+      </button>
+      <button
+        onClick={onRemove}
+        title="Remove from scene"
+        className="no-drag -mr-0.5 text-sibyl-muted opacity-0 transition-opacity hover:text-red-300 group-hover/chip:opacity-100"
+      >
+        <XIcon size={12} />
+      </button>
+    </div>
+  )
+}
+
+/** Dropdown to add another persona to the cast. */
+function AddCastMenu({ conversation }: { conversation: Conversation }) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const personas = useStore((s) => s.settings?.personas ?? [])
+  const available = personas.filter((p) => !conversation.cast?.includes(p.id))
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent): void => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        title="Add a character"
+        className="no-drag flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-sibyl-border text-sibyl-muted transition-colors hover:border-sibyl-accent/50 hover:text-sibyl-accent"
+      >
+        <PlusIcon size={15} />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-10 z-30 max-h-72 w-56 animate-fade-in overflow-y-auto rounded-lg border border-sibyl-border bg-sibyl-surface p-1 shadow-2xl">
+          {available.length === 0 ? (
+            <div className="px-2.5 py-3 text-center text-[12px] text-sibyl-muted">
+              Every persona is already in the cast.
+            </div>
+          ) : (
+            available.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => {
+                  actions.addCastMember(p.id)
+                  setOpen(false)
+                }}
+                className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-sibyl-surface-2"
+              >
+                <Avatar avatar={p.avatar} size={26} glow={false} />
+                <div className="min-w-0">
+                  <div className="truncate font-mono text-[12.5px] font-semibold text-sibyl-text">{p.name}</div>
+                  {p.role && <div className="truncate text-[11px] text-sibyl-muted">{p.role}</div>}
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Header strip for a scene: the cast, transport (play/step), and the controls. */
+function SceneStrip({
+  conversation,
+  onFind,
+  onThreadSettings
+}: {
+  conversation: Conversation
+  onFind: () => void
+  onThreadSettings: () => void
+}) {
+  const personas = useStore((s) => s.settings?.personas ?? [])
+  const playing = useStore((s) => s.scenePlay?.convId === conversation.id)
+  const generating = useStore((s) => s.engine.state === 'generating')
+  const hasModel = useStore((s) => Boolean(s.engine.modelId))
+  const cast = sceneCast(conversation, personas)
+  const nextId = nextSpeakerId(conversation, personas)
+  const nextName = cast.find((c) => c.id === nextId)?.name.split(/\s+/)[0]
+
+  return (
+    <div className="flex shrink-0 items-center gap-3 border-b border-sibyl-border/60 px-3.5 py-2.5">
+      <UsersIcon size={16} className="shrink-0 text-sibyl-accent-2" />
+      <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto py-0.5">
+        {cast.map((p) => (
+          <CastChip
+            key={p.id}
+            persona={p}
+            isNext={p.id === nextId && !playing}
+            disabled={generating || playing}
+            onSpeak={() => void actions.advanceScene(p.id)}
+            onRemove={() => actions.removeCastMember(p.id)}
+          />
+        ))}
+        <AddCastMenu conversation={conversation} />
+      </div>
+
+      <div className="flex shrink-0 items-center gap-1.5 border-l border-sibyl-border/60 pl-2.5">
+        <button
+          onClick={() => actions.toggleScenePlay()}
+          disabled={!hasModel || cast.length < 2}
+          className={`no-drag flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12.5px] font-semibold transition-colors disabled:opacity-40 ${
+            playing
+              ? 'bg-sibyl-accent/15 text-sibyl-accent'
+              : 'btn-surface'
+          }`}
+          title={playing ? 'Pause the scene' : 'Play the scene (auto-advance)'}
+        >
+          {playing ? <PauseIcon size={14} /> : <PlayIcon size={14} />}
+          {playing ? 'Pause' : 'Play'}
+        </button>
+        <button
+          onClick={() => void actions.advanceScene()}
+          disabled={!hasModel || generating || playing || cast.length < 2}
+          className="btn-ghost no-drag h-8 w-8 p-0 disabled:opacity-40"
+          title={nextName ? `Advance — ${nextName} speaks next` : 'Advance one beat'}
+        >
+          <StepForwardIcon size={15} />
+        </button>
+      </div>
+
+      <div className="flex shrink-0 items-center gap-2.5">
+        <ModelPicker />
+        <ContextMeter />
+        <HeaderMenu hasOverrides={Boolean(conversation.overrides)} onFind={onFind} onThreadSettings={onThreadSettings} />
+      </div>
+    </div>
+  )
+}
+
 export function ChatView() {
   const conversation = useStore((s) => s.conversations.find((c) => c.id === s.activeConversationId))
   const personas = useStore((s) => s.settings?.personas ?? [])
@@ -230,6 +401,7 @@ export function ChatView() {
 
   const persona = findPersona(personas, conversation?.personaId)
   const speaker = persona ? persona.name.split(/\s+/)[0] : 'Sibyl'
+  const scene = isScene(conversation)
 
   // The picker takes over the column when explicitly opened, or when there's no
   // active thread to show.
@@ -284,16 +456,27 @@ export function ChatView() {
           <PersonaPicker canCancel={hasConversations} />
         ) : (
           <>
-            <PersonaStrip
-              conversation={conversation!}
-              persona={persona}
-              onEditPersona={() => setPersonaEditorOpen(true)}
-              onFind={() => {
-                setFindOpen(true)
-                setTimeout(() => findInputRef.current?.focus(), 0)
-              }}
-              onThreadSettings={() => setSettingsOpen(true)}
-            />
+            {scene ? (
+              <SceneStrip
+                conversation={conversation!}
+                onFind={() => {
+                  setFindOpen(true)
+                  setTimeout(() => findInputRef.current?.focus(), 0)
+                }}
+                onThreadSettings={() => setSettingsOpen(true)}
+              />
+            ) : (
+              <PersonaStrip
+                conversation={conversation!}
+                persona={persona}
+                onEditPersona={() => setPersonaEditorOpen(true)}
+                onFind={() => {
+                  setFindOpen(true)
+                  setTimeout(() => findInputRef.current?.focus(), 0)
+                }}
+                onThreadSettings={() => setSettingsOpen(true)}
+              />
+            )}
 
             {findOpen && (
               <div className="flex shrink-0 items-center gap-2 border-b border-sibyl-border/60 bg-sibyl-surface/40 px-4 py-2">
@@ -334,30 +517,42 @@ export function ChatView() {
             {visible.length === 0 ? (
               <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
                 <p className="max-w-md text-[14px] leading-relaxed text-sibyl-muted">
-                  {persona
-                    ? `Write the first beat with ${persona.name} below.`
-                    : 'Type a message below to begin a private, on-device conversation.'}
+                  {scene
+                    ? 'Press Play to watch the scene unfold, Step through it beat by beat, or speak and direct below.'
+                    : persona
+                      ? `Write the first beat with ${persona.name} below.`
+                      : 'Type a message below to begin a private, on-device conversation.'}
                 </p>
               </div>
             ) : (
               <div ref={scrollRef} className="flex-1 overflow-y-auto">
                 <OverflowBanner />
                 <div className="mx-auto flex max-w-[680px] flex-col gap-[26px] px-7 py-7">
-                  {persona && persona.role && <SceneDivider caption={persona.role} />}
-                  {visible.map((m, i) => (
-                    <div key={m.id} className="contents">
-                      <div id={`msg-${m.id}`} className={foldedThroughIdx >= 0 && i <= foldedThroughIdx ? 'opacity-45' : ''}>
-                        <Message
-                          message={m}
-                          streaming={generating && i === visible.length - 1 && m.role === 'assistant'}
-                          isLast={i === visible.length - 1}
-                          highlighted={m.id === currentMatchId}
-                          speaker={speaker}
-                        />
+                  {scene
+                    ? conversation!.scenePremise && <SceneDivider caption={conversation!.scenePremise} />
+                    : persona && persona.role && <SceneDivider caption={persona.role} />}
+                  {visible.map((m, i) => {
+                    // In a scene each beat attributes its own speaker; otherwise the
+                    // single persona (or "Sibyl") labels every assistant turn.
+                    const beatPersona = scene ? findPersona(personas, m.speakerId) : null
+                    const beatSpeaker = scene ? (m.speakerName ?? beatPersona?.name ?? 'Character') : speaker
+                    return (
+                      <div key={m.id} className="contents">
+                        <div id={`msg-${m.id}`} className={foldedThroughIdx >= 0 && i <= foldedThroughIdx ? 'opacity-45' : ''}>
+                          <Message
+                            message={m}
+                            streaming={generating && i === visible.length - 1 && m.role === 'assistant'}
+                            isLast={i === visible.length - 1}
+                            highlighted={m.id === currentMatchId}
+                            speaker={beatSpeaker}
+                            avatar={scene ? beatPersona?.avatar : undefined}
+                            speakerColor={scene ? beatPersona?.avatar.gradient[0] : undefined}
+                          />
+                        </div>
+                        {i === foldedThroughIdx && <CompactionDivider conversation={conversation!} />}
                       </div>
-                      {i === foldedThroughIdx && <CompactionDivider conversation={conversation!} />}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </div>
             )}

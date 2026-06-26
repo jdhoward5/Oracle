@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { actions, useStore } from '../../store'
 import { findPersona } from '@shared/personas'
+import { isScene } from '@shared/scene'
 import { PlusIcon, TrashIcon, EditIcon, SearchIcon } from '../../lib/icons'
 
 /** First message snippet around a match, for the search results. */
@@ -74,8 +75,17 @@ export function ConversationList() {
             q && !titleMatches ? (c.messages.map((m) => matchSnippet(m.content, q)).find(Boolean) ?? null) : null
           const active = c.id === activeId
           const persona = findPersona(personas, c.personaId)
-          const turns = c.messages.filter((m) => m.role === 'user').length
-          const meta = [persona?.name ?? 'Blank', `${turns} ${turns === 1 ? 'turn' : 'turns'}`, relTime(c.updatedAt)].join(' · ')
+          const scene = isScene(c)
+          const lead = scene
+            ? `Scene · ${c.cast!.length} cast`
+            : (persona?.name ?? 'Blank')
+          const turns = scene
+            ? c.messages.filter((m) => m.role === 'assistant').length
+            : c.messages.filter((m) => m.role === 'user').length
+          const turnLabel = scene
+            ? `${turns} ${turns === 1 ? 'beat' : 'beats'}`
+            : `${turns} ${turns === 1 ? 'turn' : 'turns'}`
+          const meta = [lead, turnLabel, relTime(c.updatedAt)].join(' · ')
           return (
             <div
               key={c.id}

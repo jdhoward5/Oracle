@@ -1,6 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron'
 import { IPC } from '@shared/ipc'
-import type { SibylBridge, ChatSendRequest, TtsSpeakRequest } from '@shared/ipc'
+import type { SibylBridge, ChatSendRequest, ChatAdvanceRequest, TtsSpeakRequest } from '@shared/ipc'
 import type { AppSettings, Conversation } from '@shared/types'
 
 /**
@@ -40,6 +40,7 @@ const bridge: SibylBridge = {
   },
   chat: {
     send: (req: ChatSendRequest) => ipcRenderer.invoke(IPC.chatSend, req),
+    advance: (req: ChatAdvanceRequest) => ipcRenderer.invoke(IPC.chatAdvance, req),
     abort: (conversationId) => ipcRenderer.invoke(IPC.chatAbort, conversationId),
     compact: (conversationId) => ipcRenderer.invoke(IPC.chatCompact, conversationId),
     invalidateSession: (conversationId) => ipcRenderer.invoke(IPC.chatInvalidate, conversationId),

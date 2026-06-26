@@ -2,24 +2,56 @@ import { useState } from 'react'
 import { actions, useStore } from '../../store'
 import { PersonaCard } from './PersonaCard'
 import { PersonaEditor } from './PersonaEditor'
-import { PlusIcon, ChevronRight } from '../../lib/icons'
+import { PlusIcon, ChevronRight, ChatIcon, UsersIcon } from '../../lib/icons'
+
+type Mode = 'thread' | 'scene'
 
 /**
- * The new-thread persona picker shown over the chat column. Pick a saved persona
- * (sets prompt, voice and sampling) or start blank, then begin the thread.
+ * The new-conversation picker shown over the chat column. Two modes:
+ *  - Thread: pick one saved persona (or blank) to write a solo conversation.
+ *  - Scene: pick a cast of ≥2 personas who roleplay with each other while you
+ *    watch, join in, or direct.
  */
 export function PersonaPicker({ canCancel }: { canCancel: boolean }) {
   const personas = useStore((s) => s.settings?.personas ?? [])
-  // `undefined` = nothing chosen yet, `null` = explicitly blank thread.
+  const [mode, setMode] = useState<Mode>('thread')
+  // Thread: `undefined` = nothing chosen, `null` = explicitly blank.
   const [selected, setSelected] = useState<string | null | undefined>(personas[0]?.id)
+  // Scene: the chosen cast (persona ids), premise and the human's own character.
+  const [cast, setCast] = useState<string[]>([])
+  const [premise, setPremise] = useState('')
+  const [playName, setPlayName] = useState('')
+  const [playDesc, setPlayDesc] = useState('')
   const [editorOpen, setEditorOpen] = useState(false)
 
   const chosen = personas.find((p) => p.id === selected) ?? null
 
-  const start = (personaId: string | null): void => {
+  const startThread = (personaId: string | null): void => {
     actions.newConversation(personaId ?? undefined)
     actions.closePersonaPicker()
   }
+  const startScene = (): void => {
+    if (cast.length < 2) return
+    actions.newScene(cast, {
+      premise: premise.trim() || undefined,
+      userCharacter:
+        playName.trim() || playDesc.trim() ? { name: playName.trim(), description: playDesc.trim() } : undefined
+    })
+    actions.closePersonaPicker()
+  }
+  const toggleCast = (id: string): void =>
+    setCast((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]))
+
+  const Tab = ({ value, icon, label }: { value: Mode; icon: React.ReactNode; label: string }) => (
+    <button
+      onClick={() => setMode(value)}
+      className={`flex items-center gap-2 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors ${
+        mode === value ? 'bg-sibyl-accent/15 text-sibyl-accent' : 'text-sibyl-muted hover:text-sibyl-text'
+      }`}
+    >
+      {icon} {label}
+    </button>
+  )
 
   return (
     <div
@@ -30,34 +62,83 @@ export function PersonaPicker({ canCancel }: { canCancel: boolean }) {
       }}
     >
       <div className="mx-auto max-w-[760px] px-8 pb-12 pt-14">
-        <div className="eyebrow mb-2.5 text-sibyl-accent">// New thread</div>
-        <h2 className="mb-2 font-mono text-[28px] font-extrabold tracking-tight text-sibyl-text">
-          Who are you writing with?
+        <div className="eyebrow mb-2.5 text-sibyl-accent">// New conversation</div>
+        <h2 className="mb-4 font-mono text-[28px] font-extrabold tracking-tight text-sibyl-text">
+          {mode === 'scene' ? 'Cast a scene' : 'Who are you writing with?'}
         </h2>
+
+        <div className="mb-6 inline-flex items-center gap-1 rounded-xl border border-sibyl-border bg-sibyl-surface p-1">
+          <Tab value="thread" icon={<ChatIcon size={15} />} label="Solo thread" />
+          <Tab value="scene" icon={<UsersIcon size={15} />} label="Scene (cast)" />
+        </div>
+
         <p className="mb-7 text-[14.5px] leading-relaxed text-sibyl-muted">
-          Pick a saved persona — it sets the character brief, voice and sampling — or start blank.
+          {mode === 'scene'
+            ? 'Pick two or more characters. They’ll converse with each other — watch it play out, jump in as your own character, or step in to direct.'
+            : 'Pick a saved persona — it sets the character brief, voice and sampling — or start blank.'}
         </p>
 
-        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-          {personas.map((p) => (
-            <PersonaCard key={p.id} persona={p} selected={selected === p.id} onClick={() => setSelected(p.id)} />
-          ))}
-
-          {/* Blank thread */}
-          <button
-            onClick={() => setSelected(null)}
-            className={`flex items-center gap-3 rounded-lg border bg-sibyl-surface p-4 text-left transition-colors ${
-              selected === null ? 'border-sibyl-accent/60 ring-[3px] ring-sibyl-accent/10' : 'border-sibyl-border hover:border-sibyl-accent/40'
-            }`}
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-sibyl-border text-sibyl-muted">
-              <PlusIcon size={18} />
-            </div>
+        {mode === 'scene' && (
+          <div className="mb-5 grid grid-cols-1 gap-3">
             <div>
-              <div className="font-mono text-[14px] font-bold text-sibyl-text">Blank thread</div>
-              <div className="text-[12px] text-sibyl-muted">No persona · global prompt</div>
+              <label className="eyebrow mb-1.5 block text-sibyl-muted">Premise (optional)</label>
+              <textarea
+                value={premise}
+                onChange={(e) => setPremise(e.target.value)}
+                rows={2}
+                placeholder="Where and when does this scene take place? What’s the situation?"
+                className="input w-full resize-none text-[13.5px]"
+              />
             </div>
-          </button>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[200px_1fr]">
+              <div>
+                <label className="eyebrow mb-1.5 block text-sibyl-muted">You play (optional)</label>
+                <input
+                  value={playName}
+                  onChange={(e) => setPlayName(e.target.value)}
+                  placeholder="Your character"
+                  className="input w-full text-[13.5px]"
+                />
+              </div>
+              <div>
+                <label className="eyebrow mb-1.5 block text-sibyl-muted">&nbsp;</label>
+                <input
+                  value={playDesc}
+                  onChange={(e) => setPlayDesc(e.target.value)}
+                  placeholder="A short description of who you are in the scene"
+                  className="input w-full text-[13.5px]"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+          {personas.map((p) =>
+            mode === 'scene' ? (
+              <PersonaCard key={p.id} persona={p} selected={cast.includes(p.id)} onClick={() => toggleCast(p.id)} />
+            ) : (
+              <PersonaCard key={p.id} persona={p} selected={selected === p.id} onClick={() => setSelected(p.id)} />
+            )
+          )}
+
+          {/* Blank thread (solo only) */}
+          {mode === 'thread' && (
+            <button
+              onClick={() => setSelected(null)}
+              className={`flex items-center gap-3 rounded-lg border bg-sibyl-surface p-4 text-left transition-colors ${
+                selected === null ? 'border-sibyl-accent/60 ring-[3px] ring-sibyl-accent/10' : 'border-sibyl-border hover:border-sibyl-accent/40'
+              }`}
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-sibyl-border text-sibyl-muted">
+                <PlusIcon size={18} />
+              </div>
+              <div>
+                <div className="font-mono text-[14px] font-bold text-sibyl-text">Blank thread</div>
+                <div className="text-[12px] text-sibyl-muted">No persona · global prompt</div>
+              </div>
+            </button>
+          )}
 
           {/* New persona */}
           <button
@@ -75,18 +156,38 @@ export function PersonaPicker({ canCancel }: { canCancel: boolean }) {
         </div>
 
         <div className="mt-6 flex items-center justify-end gap-2">
+          {mode === 'scene' && (
+            <span className="mr-auto text-[12.5px] text-sibyl-muted">
+              {cast.length === 0
+                ? 'Select at least two characters.'
+                : cast.length === 1
+                  ? 'Select one more character.'
+                  : `${cast.length} characters cast.`}
+            </span>
+          )}
           {canCancel && (
             <button onClick={() => actions.closePersonaPicker()} className="btn-ghost px-4 py-2.5 text-[13px]">
               Cancel
             </button>
           )}
-          <button
-            onClick={() => start(selected === undefined ? null : selected)}
-            className="btn-primary h-[42px] px-5 text-[14px]"
-          >
-            {chosen ? `Start with ${chosen.name}` : 'Start blank thread'}
-            <ChevronRight size={16} />
-          </button>
+          {mode === 'scene' ? (
+            <button
+              onClick={startScene}
+              disabled={cast.length < 2}
+              className="btn-primary h-[42px] px-5 text-[14px] disabled:opacity-40"
+            >
+              Start scene{cast.length >= 2 ? ` · ${cast.length}` : ''}
+              <ChevronRight size={16} />
+            </button>
+          ) : (
+            <button
+              onClick={() => startThread(selected === undefined ? null : selected)}
+              className="btn-primary h-[42px] px-5 text-[14px]"
+            >
+              {chosen ? `Start with ${chosen.name}` : 'Start blank thread'}
+              <ChevronRight size={16} />
+            </button>
+          )}
         </div>
       </div>
 

@@ -14,6 +14,7 @@ import type {
 import { DEFAULT_GENERATION_OPTIONS } from '@shared/types'
 import { contextLevel } from '@shared/context'
 import { findPersona } from '@shared/personas'
+import { buildBeatPrompt, sceneCast, type SceneTurn } from '@shared/scene'
 import { getLlamaInstance } from './llama'
 import { getInstalledModel, getSettings, upsertInstalledModel } from './store'
 
@@ -441,6 +442,168 @@ class InferenceEngine extends EventEmitter {
       // Report the now-exact KV-cache fill so the renderer's meter is accurate.
       void this.emitUsage(conversation)
       // Release last: unblocks any unload() waiting for this prompt to unwind.
+      this.endExclusive()
+    }
+  }
+
+  /** Map the neutral scene history (+ system) onto node-llama-cpp chat items. */
+  private sceneHistory(system: string, turns: SceneTurn[]): NLC.ChatHistoryItem[] {
+    const history: NLC.ChatHistoryItem[] = [{ type: 'system', text: system }]
+    for (const t of turns) {
+      if (t.role === 'user') history.push({ type: 'user', text: t.text })
+      else history.push({ type: 'model', response: [t.text] })
+    }
+    return history
+  }
+
+  /**
+   * Generate one beat of a self-roleplay scene: the next line spoken by the cast
+   * persona `speakerId`. Unlike generate(), the active speaker (and therefore the
+   * system prompt) changes every beat, so the shared session is always rebuilt
+   * from the scene transcript via buildBeatPrompt — the renderer drives turn-taking
+   * and autoplay; the engine just produces one beat at a time. Streams over the
+   * same chat:event channel as generate().
+   */
+  async generateBeat(
+    conversation: Conversation,
+    speakerId: string,
+    assistantMessageId: string,
+    optionsOverride: Partial<GenerationOptions> | undefined
+  ): Promise<void> {
+    if (!this.model || !this.context || !this.session) {
+      this.emitEvent({
+        type: 'error',
+        conversationId: conversation.id,
+        messageId: assistantMessageId,
+        error: 'No model is loaded. Load a model first.'
+      })
+      return
+    }
+    if (this.busy) {
+      this.emitEvent({
+        type: 'error',
+        conversationId: conversation.id,
+        messageId: assistantMessageId,
+        error: 'A response is already being generated. Wait for it to finish.'
+      })
+      return
+    }
+
+    const settings = await getSettings()
+    const cast = sceneCast(conversation, settings.personas)
+    const speaker = findPersona(settings.personas, speakerId)
+    if (!speaker) {
+      this.emitEvent({
+        type: 'error',
+        conversationId: conversation.id,
+        messageId: assistantMessageId,
+        error: 'That character is no longer in your persona library.'
+      })
+      return
+    }
+
+    this.beginExclusive()
+    let started = 0
+    let completionTokens = 0
+    try {
+      const opts: GenerationOptions = {
+        ...DEFAULT_GENERATION_OPTIONS,
+        ...settings.generation,
+        ...(speaker.generation ?? {}),
+        ...(conversation.overrides?.generation ?? {}),
+        ...optionsOverride
+      }
+      const beat = buildBeatPrompt({
+        // Honor compaction: feed only the un-folded tail; the summary rides in
+        // the system turn below (older turns were condensed to save context).
+        messages: this.liveMessages(conversation),
+        speaker,
+        cast,
+        userCharacter: conversation.userCharacter,
+        scenePremise: conversation.scenePremise
+      })
+      let system = beat.system
+      const summary = conversation.compaction?.summary?.trim()
+      if (summary) system += `\n\n${SUMMARY_PREFIX}${summary}`
+
+      // The speaker changes every beat — always rebuild the session history.
+      this.session.setChatHistory(this.sceneHistory(system, beat.history))
+      this.sessionConversationId = null
+
+      const stopTriggers = [...(opts.stopSequences ?? []), ...beat.stopTriggers].filter(Boolean)
+      this.abort = new AbortController()
+      await this.setState('generating')
+
+      started = Date.now()
+      const responseText = await this.session.prompt(beat.prompt, {
+        signal: this.abort.signal,
+        stopOnAbortSignal: true,
+        temperature: opts.temperature,
+        topP: opts.topP,
+        topK: opts.topK,
+        minP: opts.minP,
+        maxTokens: opts.maxTokens,
+        seed: opts.seed,
+        repeatPenalty: { penalty: opts.repeatPenalty },
+        customStopTriggers: stopTriggers.length ? stopTriggers : undefined,
+        onTextChunk: (chunk: string) => {
+          completionTokens += 1
+          this.emitEvent({
+            type: 'token',
+            conversationId: conversation.id,
+            messageId: assistantMessageId,
+            text: chunk
+          })
+        }
+      })
+
+      const durationMs = Date.now() - started
+      try {
+        if (this.model && responseText) completionTokens = this.model.tokenize(responseText).length
+      } catch {
+        /* keep chunk-based estimate */
+      }
+      this.emitEvent({
+        type: 'done',
+        conversationId: conversation.id,
+        messageId: assistantMessageId,
+        stats: {
+          promptTokens: this.estimatePromptTokens(conversation, beat.prompt),
+          completionTokens,
+          durationMs,
+          tokensPerSecond: durationMs > 0 ? (completionTokens / durationMs) * 1000 : 0,
+          contextTokens: this.sequence?.nextTokenIndex
+        }
+      })
+    } catch (err) {
+      if (this.abort?.signal.aborted) {
+        const durationMs = Date.now() - started
+        this.emitEvent({
+          type: 'done',
+          conversationId: conversation.id,
+          messageId: assistantMessageId,
+          stats: {
+            promptTokens: 0,
+            completionTokens,
+            durationMs,
+            tokensPerSecond: durationMs > 0 ? (completionTokens / durationMs) * 1000 : 0,
+            contextTokens: this.sequence?.nextTokenIndex
+          }
+        })
+      } else {
+        this.emitEvent({
+          type: 'error',
+          conversationId: conversation.id,
+          messageId: assistantMessageId,
+          error: err instanceof Error ? err.message : String(err)
+        })
+      }
+    } finally {
+      this.abort = null
+      // The session no longer matches any single conversation's history.
+      this.sessionConversationId = null
+      await this.setState('ready')
+      void this.emitUsage(conversation)
       this.endExclusive()
     }
   }

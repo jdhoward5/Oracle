@@ -1,7 +1,8 @@
 import { memo, useState } from 'react'
-import type { ChatMessage } from '@shared/types'
+import type { ChatMessage, PersonaAvatar } from '@shared/types'
 import { actions, canSpeak, useStore } from '../../store'
 import { Markdown } from '../../lib/markdown'
+import { Avatar } from '../persona/Avatar'
 import {
   CopyIcon,
   CheckIcon,
@@ -11,7 +12,8 @@ import {
   BranchIcon,
   AlertTriangleIcon,
   SpeakerIcon,
-  StopIcon
+  StopIcon,
+  MegaphoneIcon
 } from '../../lib/icons'
 
 interface Props {
@@ -23,6 +25,10 @@ interface Props {
   highlighted?: boolean
   /** Speaker label for assistant turns (persona name, or "Sibyl"). */
   speaker?: string
+  /** In a scene: the speaking persona's avatar, shown beside the attribution. */
+  avatar?: PersonaAvatar
+  /** In a scene: the speaker's accent colour for the attribution label. */
+  speakerColor?: string
 }
 
 const HIGHLIGHT = 'rounded-lg ring-2 ring-sibyl-accent/70 ring-offset-4 ring-offset-sibyl-bg'
@@ -34,7 +40,15 @@ const ACTION_BASE =
 const ACTION = `${ACTION_BASE} hover:text-sibyl-text`
 const ACTION_DANGER = `${ACTION_BASE} hover:text-red-300`
 
-function MessageImpl({ message, streaming, isLast = false, highlighted = false, speaker = 'Sibyl' }: Props) {
+function MessageImpl({
+  message,
+  streaming,
+  isLast = false,
+  highlighted = false,
+  speaker = 'Sibyl',
+  avatar,
+  speakerColor
+}: Props) {
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -43,6 +57,64 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false, 
   const showSpeak = useStore(canSpeak)
   const speaking = useStore((s) => s.speakingMessageId === message.id)
   const isUser = message.role === 'user'
+
+  // --- director note — out-of-character stage direction --------------------
+  if (message.director) {
+    if (editing) {
+      return (
+        <div className="animate-fade-in">
+          <textarea
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault()
+                if (draft.trim()) {
+                  actions.editMessageContent(message.id, draft)
+                  setEditing(false)
+                }
+              } else if (e.key === 'Escape') setEditing(false)
+            }}
+            rows={2}
+            className="input mx-auto block w-full max-w-[520px] resize-none text-center text-[13px]"
+          />
+        </div>
+      )
+    }
+    return (
+      <div className={`group animate-fade-in ${highlighted ? HIGHLIGHT : ''}`}>
+        <div className="mx-auto flex max-w-[560px] items-start gap-2 rounded-lg border border-dashed border-sibyl-accent-2/40 bg-sibyl-accent-2/[0.05] px-3.5 py-2 text-center">
+          <MegaphoneIcon size={14} className="mt-0.5 shrink-0 text-sibyl-accent-2" />
+          <p className="selectable flex-1 whitespace-pre-wrap text-[12.5px] italic leading-relaxed text-sibyl-secondary">
+            <span className={`${LABEL} mr-1.5 not-italic text-sibyl-accent-2`}>Director</span>
+            {message.content}
+          </p>
+          <div className="flex shrink-0 items-center gap-1.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              onClick={() => {
+                setDraft(message.content)
+                setEditing(true)
+              }}
+              disabled={generating}
+              className="text-sibyl-muted hover:text-sibyl-text disabled:opacity-40"
+              title="Edit note"
+            >
+              <EditIcon size={12} />
+            </button>
+            <button
+              onClick={() => actions.deleteMessage(message.id)}
+              disabled={generating}
+              className="text-sibyl-muted hover:text-red-300 disabled:opacity-40"
+              title="Delete note"
+            >
+              <TrashIcon size={12} />
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   // Live streaming counters, shown only while this assistant turn is generating.
   const live = streaming && streamStats?.messageId === message.id && streamStats.tokens > 0 ? streamStats : null
@@ -131,7 +203,15 @@ function MessageImpl({ message, streaming, isLast = false, highlighted = false, 
   // --- assistant message — attributed prose --------------------------------
   return (
     <div className={`group animate-fade-in ${highlighted ? HIGHLIGHT : ''}`}>
-      <div className={`${LABEL} mb-2 text-sibyl-accent`}>{speaker}</div>
+      <div className="mb-2 flex items-center gap-2">
+        {avatar && <Avatar avatar={avatar} size={22} glow={false} />}
+        <span
+          className={`${LABEL} ${speakerColor ? '' : 'text-sibyl-accent'}`}
+          style={speakerColor ? { color: speakerColor } : undefined}
+        >
+          {speaker}
+        </span>
+      </div>
       <div className="min-w-0">
         {message.content ? (
           <div className={streaming ? 'caret-wrap' : ''}>

@@ -5,8 +5,10 @@ locally via `node-llama-cpp`. Stack: electron-vite + React + TS + Tailwind.
 
 ## Layout
 - `src/shared/` — types + IPC contract + pure helpers. **No node/electron imports**
-  (loaded by the renderer). Unit-tested (`format.test.ts`, `tts.test.ts`).
-  `tts.ts` = TTS types + Piper voice catalog + pure phoneme→id / markdown→speech.
+  (loaded by the renderer). Unit-tested (`format.test.ts`, `tts.test.ts`,
+  `scene.test.ts`). `tts.ts` = TTS types + Piper voice catalog + pure phoneme→id /
+  markdown→speech. `scene.ts` = self-roleplay scene helpers (round-robin speaker
+  pick + group-chat beat-prompt assembly).
 - `src/main/` — Electron main. `engine.ts` (inference), `tts.ts` (Piper speech),
   `downloads.ts`, `hf.ts`, `store.ts` (persistence), `llama.ts` (backend),
   `ipc.ts` (router), `index.ts`.
@@ -41,6 +43,38 @@ locally via `node-llama-cpp`. Stack: electron-vite + React + TS + Tailwind.
     `content`) and the synthesized audio are private. Synthesis runs on-device and
     the audio only ever flows main→renderer for local playback — never log the
     spoken text, the PCM, or anything derived from it.
+
+## Self-roleplay scenes (AI converses with itself)
+- A **scene** is a `Conversation` with a `cast: string[]` of **≥2** persona ids
+  (`isScene` = cast length ≥ `MIN_SCENE_CAST`). The cast characters roleplay with
+  each other; the human can **watch** (autoplay), **participate** (speak as their
+  own `userCharacter`), or **direct** (out-of-character notes that steer the next
+  beats). An ordinary single-persona thread is just a scene with no cast.
+- **Messages carry their own attribution.** A scene beat is `role:'assistant'`
+  with `speakerId`/`speakerName` (the AI character who spoke it). The human's lines
+  are plain `role:'user'`; director notes are `role:'user'` + `director:true`
+  (rendered as a stage direction, fed to characters as guidance — **not** as
+  `role:'system'`, which would collide with `systemPromptFor`'s legacy-system-message
+  lookup).
+- **One beat at a time, group-chat prompting.** The active speaker (and thus the
+  system prompt) changes every beat, so `engine.generateBeat()` always *rebuilds*
+  the session from the transcript via the pure `buildBeatPrompt` (`scene.ts`) — it
+  does **not** reuse the warm session like `generate()`. From the speaker's POV:
+  their own prior beats → unprefixed `model` turns; everyone else's lines + director
+  notes → name-prefixed `user` turns, with consecutive "other" lines **coalesced**
+  into one user turn (the chat template never sees two user turns in a row). The
+  trailing run becomes the prompt; other characters' names are `customStopTriggers`
+  so a beat can't run on into someone else's turn. Honors compaction (live tail +
+  summary in the system turn) like the normal path. Streams over the **same**
+  `chat:event` channel; IPC entry point is `chat:advance` (`ChatAdvanceRequest`).
+- **The renderer owns turn-taking + autoplay**, not main. `store.ts`: `newScene`,
+  `advanceScene(speakerId?)` (round-robin via `nextSpeakerId`, or click a cast chip
+  to override), `sceneSpeak`/`sceneDirect`, and a single self-rescheduling timer
+  (`startScenePlay`/`tickScenePlay`/`scheduleNextBeat`) that advances beat-after-beat,
+  pausing while a beat is **narrated** (autoSpeak) so speech never queues up. Autoplay
+  is pinned to one `scenePlay.convId` and stops on switch-away/abort/error. UI:
+  `SceneStrip` (cast chips + play/pause/step) in `ChatView`, the Composer's
+  speak/direct toggle, scene multi-select in `PersonaPicker`.
 
 ## Text-to-speech (Piper, on-device)
 - Speaks AI replies with **local neural voices** (Piper / VITS). A voice is an

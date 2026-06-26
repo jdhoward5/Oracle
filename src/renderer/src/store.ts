@@ -19,6 +19,7 @@ import type { ExportFormat } from '@shared/export'
 import type { InstalledVoice, TtsSettings, TtsStatus, TtsVoiceDownload } from '@shared/tts'
 import { getAccentTheme, hexToRgbChannels } from '@shared/themes'
 import { findPersona } from '@shared/personas'
+import { isScene, nextSpeakerId, stripSpeakerPrefix, MIN_SCENE_CAST } from '@shared/scene'
 import { ttsPlayer } from './lib/ttsPlayer'
 
 /** Paint the selected accent theme onto documentElement as CSS variables. */
@@ -73,6 +74,11 @@ export interface AppState {
   voiceDownloads: Record<string, TtsVoiceDownload>
   /** The message currently being spoken aloud, or null. Driven by the audio player. */
   speakingMessageId: string | null
+  /**
+   * Set while a self-roleplay scene is auto-advancing (the human is watching).
+   * `convId` pins the loop to one conversation; null means manual/stopped.
+   */
+  scenePlay: { convId: string } | null
 }
 
 const initialState: AppState = {
@@ -110,7 +116,8 @@ const initialState: AppState = {
   tts: null,
   installedVoices: [],
   voiceDownloads: {},
-  speakingMessageId: null
+  speakingMessageId: null,
+  scenePlay: null
 }
 
 let state: AppState = initialState
@@ -146,6 +153,15 @@ export const uid = (): string =>
     : Math.random().toString(36).slice(2) + Date.now().toString(36)
 
 const now = (): string => new Date().toISOString()
+
+// Scene autoplay: a single self-rescheduling timer drives beat-after-beat.
+let sceneTimer: ReturnType<typeof setTimeout> | null = null
+/** Pause between scene beats so the reader can keep up (ms). */
+const SCENE_BEAT_DELAY_MS = 650
+function clearSceneTimer(): void {
+  if (sceneTimer) clearTimeout(sceneTimer)
+  sceneTimer = null
+}
 
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 function toast(message: string, kind: 'info' | 'error' | 'success' = 'info'): void {
@@ -388,20 +404,23 @@ export const actions = {
       } else if (e.type === 'done') {
         let finishedText = ''
         updateConversation(e.conversationId, (c) => {
-          const updated = {
-            ...c,
-            updatedAt: now(),
-            messages: c.messages.map((m) =>
-              m.id === e.messageId ? { ...m, stats: e.stats, error: undefined } : m
-            )
-          }
-          finishedText = updated.messages.find((m) => m.id === e.messageId)?.content ?? ''
+          const messages = c.messages.map((m) => {
+            if (m.id !== e.messageId) return m
+            // Scene beats: drop a leading "Name:" the model sometimes prepends
+            // despite instruction (the UI already attributes the speaker).
+            const content = m.speakerId ? stripSpeakerPrefix(m.content, m.speakerName) : m.content
+            finishedText = content
+            return { ...m, content, stats: e.stats, error: undefined }
+          })
+          const updated = { ...c, updatedAt: now(), messages }
           persist(updated)
           return updated
         })
         setState({ streamStats: null })
-        // Auto-speak the freshly completed assistant reply, when enabled.
+        // Auto-speak the freshly completed reply, when enabled.
         actions.maybeAutoSpeak(e.messageId, finishedText)
+        // Drive scene autoplay forward to the next character's beat.
+        if (state.scenePlay?.convId === e.conversationId) actions.scheduleNextBeat()
       } else if (e.type === 'error') {
         updateConversation(e.conversationId, (c) => {
           const updated = {
@@ -414,6 +433,8 @@ export const actions = {
           return updated
         })
         setState({ streamStats: null })
+        // A failed beat stops autoplay rather than spinning on the error.
+        if (state.scenePlay?.convId === e.conversationId) actions.stopScenePlay()
         toast(e.error, 'error')
       }
     })
@@ -493,6 +514,240 @@ export const actions = {
     return conv.id
   },
 
+  // --- scenes (self-roleplay) ---------------------------------------------
+  /**
+   * Start a scene: a conversation whose cast of ≥2 personas converse with each
+   * other. The human can watch (autoplay), join in as their own character, or
+   * drop director notes to steer it.
+   */
+  newScene(castIds: string[], opts?: { premise?: string; userCharacter?: UserCharacter }): string {
+    const cast = castIds.filter((id, i, a) => a.indexOf(id) === i)
+    const premise = opts?.premise?.trim() || undefined
+    const names = cast.map((id) => findPersona(state.settings?.personas, id)?.name).filter(Boolean)
+    const title = (premise || (names.length ? `Scene · ${names.join(', ')}` : 'New scene')).slice(0, 48)
+    const uc = opts?.userCharacter
+    const conv: Conversation = {
+      id: uid(),
+      title,
+      modelId: state.engine.modelId,
+      messages: [],
+      cast,
+      scenePremise: premise,
+      userCharacter: uc && (uc.name.trim() || uc.description.trim()) ? uc : undefined,
+      createdAt: now(),
+      updatedAt: now()
+    }
+    setState((s) => ({
+      conversations: [conv, ...s.conversations],
+      activeConversationId: conv.id,
+      view: 'chat',
+      personaPickerOpen: false
+    }))
+    persist(conv)
+    void actions.refreshContextUsage()
+    return conv.id
+  },
+
+  /** Generate one beat. `speakerId` overrides the round-robin pick. */
+  async advanceScene(speakerId?: string): Promise<void> {
+    if (!state.engine.modelId) {
+      toast('Load a model before playing a scene.', 'error')
+      if (state.scenePlay) actions.stopScenePlay()
+      return
+    }
+    if (state.engine.state === 'generating') return
+    let conv = activeConversation()
+    if (!conv || !isScene(conv)) return
+    const conversationId = conv.id
+    const personas = state.settings?.personas
+    const sid = speakerId ?? nextSpeakerId(conv, personas)
+    if (!sid) {
+      toast('Add at least two characters to the scene.', 'error')
+      if (state.scenePlay) actions.stopScenePlay()
+      return
+    }
+
+    // Auto-compaction: summarize older beats before the window overflows so the
+    // scene can run long without truncating the next reply.
+    const ctx = state.contextUsage
+    const cset = state.settings?.context
+    if (
+      cset?.autoCompact &&
+      ctx &&
+      ctx.contextSize > 0 &&
+      (ctx.willOverflow || ctx.fraction >= cset.compactThreshold)
+    ) {
+      const did = await actions.compact(conversationId, { silent: true })
+      if (did) conv = state.conversations.find((c) => c.id === conversationId) ?? conv
+    }
+
+    const persona = findPersona(personas, sid)
+    const beat: ChatMessage = {
+      id: uid(),
+      role: 'assistant',
+      content: '',
+      createdAt: now(),
+      speakerId: sid,
+      speakerName: persona?.name
+    }
+    let saved: Conversation | null = null
+    updateConversation(conversationId, (c) => {
+      saved = { ...c, modelId: state.engine.modelId, messages: [...c.messages, beat], updatedAt: now() }
+      return saved
+    })
+    if (saved) await window.sibyl.conversations.save(saved)
+    // The active speaker (and system prompt) changed — force a fresh rebuild.
+    await window.sibyl.chat.invalidateSession(conversationId)
+    const res = await window.sibyl.chat.advance({
+      conversationId,
+      speakerId: sid,
+      assistantMessageId: beat.id
+    })
+    if (!res.ok) {
+      toast(res.error ?? 'Failed to advance the scene', 'error')
+      if (state.scenePlay) actions.stopScenePlay()
+    }
+  },
+
+  /** Speak into a scene as the human's own character, then let the cast respond. */
+  async sceneSpeak(text: string): Promise<void> {
+    const content = text.trim()
+    if (!content) return
+    if (state.engine.state === 'generating') return
+    const conv = activeConversation()
+    if (!conv || !isScene(conv)) return
+    const msg: ChatMessage = { id: uid(), role: 'user', content, createdAt: now() }
+    let saved: Conversation | null = null
+    updateConversation(conv.id, (c) => {
+      saved = { ...c, messages: [...c.messages, msg], updatedAt: now() }
+      return saved
+    })
+    if (saved) await window.sibyl.conversations.save(saved)
+    await window.sibyl.chat.invalidateSession(conv.id)
+    await actions.advanceScene()
+  },
+
+  /** Drop an out-of-character director note, then play one beat shaped by it. */
+  async sceneDirect(text: string): Promise<void> {
+    const content = text.trim()
+    if (!content) return
+    if (state.engine.state === 'generating') return
+    const conv = activeConversation()
+    if (!conv || !isScene(conv)) return
+    const note: ChatMessage = { id: uid(), role: 'user', content, createdAt: now(), director: true }
+    let saved: Conversation | null = null
+    updateConversation(conv.id, (c) => {
+      saved = { ...c, messages: [...c.messages, note], updatedAt: now() }
+      return saved
+    })
+    if (saved) await window.sibyl.conversations.save(saved)
+    await window.sibyl.chat.invalidateSession(conv.id)
+    await actions.advanceScene()
+  },
+
+  /** Begin watching: auto-advance the active scene beat after beat. */
+  startScenePlay(): void {
+    const conv = activeConversation()
+    if (!conv || !isScene(conv)) return
+    if (!state.engine.modelId) {
+      toast('Load a model before playing a scene.', 'error')
+      return
+    }
+    setState({ scenePlay: { convId: conv.id } })
+    actions.tickScenePlay()
+  },
+
+  /** Pause autoplay; any in-flight beat is allowed to finish. */
+  stopScenePlay(): void {
+    clearSceneTimer()
+    if (state.scenePlay) setState({ scenePlay: null })
+  },
+
+  toggleScenePlay(): void {
+    if (state.scenePlay) actions.stopScenePlay()
+    else actions.startScenePlay()
+  },
+
+  /** Schedule the next autoplay beat after a readable pause. */
+  scheduleNextBeat(): void {
+    clearSceneTimer()
+    sceneTimer = setTimeout(() => actions.tickScenePlay(), SCENE_BEAT_DELAY_MS)
+  },
+
+  /** Autoplay tick: advance when free, deferring while a beat is being narrated. */
+  tickScenePlay(): void {
+    const play = state.scenePlay
+    if (!play) return
+    const conv = state.conversations.find((c) => c.id === play.convId)
+    if (!conv || !isScene(conv)) {
+      actions.stopScenePlay()
+      return
+    }
+    if (state.engine.state === 'generating') return // a beat is mid-flight; 'done' reschedules
+    // When narrating, let the current line finish speaking before the next beat.
+    if (state.settings?.tts.enabled && state.settings.tts.autoSpeak && state.speakingMessageId) {
+      clearSceneTimer()
+      sceneTimer = setTimeout(() => actions.tickScenePlay(), 300)
+      return
+    }
+    void actions.advanceScene()
+  },
+
+  /** Add a persona to the active scene's cast (turning a thread into a scene at ≥2). */
+  addCastMember(personaId: string): void {
+    const conv = activeConversation()
+    if (!conv) return
+    if (conv.cast?.includes(personaId)) return
+    const cast = [...(conv.cast ?? []), personaId]
+    const updated = { ...conv, cast, updatedAt: now() }
+    updateConversation(conv.id, () => updated)
+    persist(updated)
+    void window.sibyl.chat.invalidateSession(conv.id)
+    void actions.refreshContextUsage()
+  },
+
+  /** Remove a persona from the active scene's cast (keeping the ≥2 minimum). */
+  removeCastMember(personaId: string): void {
+    const conv = activeConversation()
+    if (!conv?.cast) return
+    if (conv.cast.length <= MIN_SCENE_CAST) {
+      toast('A scene needs at least two characters.', 'info')
+      return
+    }
+    const cast = conv.cast.filter((id) => id !== personaId)
+    const updated = { ...conv, cast, updatedAt: now() }
+    updateConversation(conv.id, () => updated)
+    persist(updated)
+    void window.sibyl.chat.invalidateSession(conv.id)
+    void actions.refreshContextUsage()
+  },
+
+  /** Set (or clear) the active scene's premise. */
+  setScenePremise(premise: string): void {
+    const conv = activeConversation()
+    if (!conv) return
+    const updated = { ...conv, scenePremise: premise.trim() || undefined, updatedAt: now() }
+    updateConversation(conv.id, () => updated)
+    persist(updated)
+    void window.sibyl.chat.invalidateSession(conv.id)
+  },
+
+  /** Edit a message's text in place (no resend) — used for director notes. */
+  editMessageContent(messageId: string, text: string): void {
+    const content = text.trim()
+    const conv = activeConversation()
+    if (!conv) return
+    const updated = {
+      ...conv,
+      messages: conv.messages.map((m) => (m.id === messageId ? { ...m, content } : m)),
+      updatedAt: now()
+    }
+    updateConversation(conv.id, () => updated)
+    persist(updated)
+    void window.sibyl.chat.invalidateSession(conv.id)
+    void actions.refreshContextUsage()
+  },
+
   // --- personas -----------------------------------------------------------
   /** Create or update a persona in the library. */
   savePersona(persona: Persona): void {
@@ -532,11 +787,14 @@ export const actions = {
   },
 
   selectConversation(id: string): void {
+    // Switching away from the conversation that's auto-playing stops the loop.
+    if (state.scenePlay && state.scenePlay.convId !== id) actions.stopScenePlay()
     setState({ activeConversationId: id, view: 'chat', personaPickerOpen: false })
     void actions.refreshContextUsage()
   },
 
   async deleteConversation(id: string): Promise<void> {
+    if (state.scenePlay?.convId === id) actions.stopScenePlay()
     await window.sibyl.conversations.delete(id)
     setState((s) => {
       const conversations = s.conversations.filter((c) => c.id !== id)
@@ -623,6 +881,9 @@ export const actions = {
   },
 
   abortGeneration(): void {
+    // Stopping also halts scene autoplay so the aborted beat's 'done' doesn't
+    // immediately schedule the next one.
+    if (state.scenePlay) actions.stopScenePlay()
     if (state.activeConversationId) void window.sibyl.chat.abort(state.activeConversationId)
   },
 
@@ -659,6 +920,23 @@ export const actions = {
     if (!conv) return
     const idx = conv.messages.findIndex((m) => m.id === assistantMessageId)
     if (idx < 0) return
+    // Scene beat: reroll it — drop this beat (and anything after) and have the
+    // same character speak again.
+    if (isScene(conv) && conv.messages[idx].speakerId) {
+      const speakerId = conv.messages[idx].speakerId!
+      const messages = conv.messages.slice(0, idx)
+      const updated = {
+        ...conv,
+        messages,
+        compaction: survivingCompaction(conv, messages),
+        updatedAt: now()
+      }
+      updateConversation(conv.id, () => updated)
+      await window.sibyl.conversations.save(updated)
+      await window.sibyl.chat.invalidateSession(conv.id)
+      await actions.advanceScene(speakerId)
+      return
+    }
     let userIdx = -1
     for (let i = idx - 1; i >= 0; i--) {
       if (conv.messages[i].role === 'user') {
@@ -689,6 +967,22 @@ export const actions = {
     const idx = conv.messages.findIndex((m) => m.id === userMessageId)
     if (idx < 0 || conv.messages[idx].role !== 'user') return
     const editedUser: ChatMessage = { ...conv.messages[idx], content, createdAt: now() }
+    // Scene: replace the human's line, truncate what followed, then let the next
+    // character respond to the edited turn (rather than the single-persona path).
+    if (isScene(conv)) {
+      const messages = [...conv.messages.slice(0, idx), editedUser]
+      const updated = {
+        ...conv,
+        messages,
+        compaction: survivingCompaction(conv, messages),
+        updatedAt: now()
+      }
+      updateConversation(conv.id, () => updated)
+      await window.sibyl.conversations.save(updated)
+      await window.sibyl.chat.invalidateSession(conv.id)
+      await actions.advanceScene()
+      return
+    }
     const assistantMsg: ChatMessage = { id: uid(), role: 'assistant', content: '', createdAt: now() }
     await runTurn(conv, [...conv.messages.slice(0, idx), editedUser, assistantMsg], content, assistantMsg.id)
   },
@@ -712,7 +1006,12 @@ export const actions = {
       createdAt: now(),
       updatedAt: now(),
       overrides: conv.overrides,
-      compaction: survivingCompaction(conv, messages)
+      compaction: survivingCompaction(conv, messages),
+      // Carry scene identity so a branched scene stays a scene.
+      personaId: conv.personaId,
+      userCharacter: conv.userCharacter,
+      cast: conv.cast,
+      scenePremise: conv.scenePremise
     }
     setState((s) => ({
       conversations: [branch, ...s.conversations],

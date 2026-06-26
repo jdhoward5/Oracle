@@ -103,6 +103,23 @@ export interface ChatMessage {
   stats?: GenerationStats
   /** Set on an assistant message when its generation failed; drives the retry UI. */
   error?: string
+  /**
+   * Scene beats only: the persona id of the AI character who spoke this line.
+   * Absent on the human's own turns. A scene interleaves many speakers, so a beat
+   * carries its own attribution rather than relying on the conversation's persona.
+   */
+  speakerId?: string
+  /**
+   * Display name captured when the beat was written, so the transcript still
+   * attributes it correctly if the persona is later renamed or removed.
+   */
+  speakerName?: string
+  /**
+   * Scene only: marks an out-of-character director note (the human stepping in to
+   * steer the scene). Stored with `role: 'user'`; rendered as a stage direction
+   * and fed to every character as guidance, not as spoken dialogue.
+   */
+  director?: boolean
 }
 
 export interface GenerationStats {
@@ -196,6 +213,15 @@ export interface Conversation {
   personaId?: string
   /** The writer's own character for this thread (optional). */
   userCharacter?: UserCharacter
+  /**
+   * Self-roleplay scene: persona ids (from `settings.personas`) of the AI
+   * characters in the cast. Two or more turns the thread into a scene where the
+   * characters converse with each other and the human can watch, join in, or
+   * direct. Empty/absent ⇒ an ordinary single-persona thread.
+   */
+  cast?: string[]
+  /** Optional one-line premise/setting shown to every character in a scene. */
+  scenePremise?: string
 }
 
 export interface GenerationOptions {

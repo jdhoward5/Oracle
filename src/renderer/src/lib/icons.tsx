@@ -227,3 +227,40 @@ export const SpeakerMuteIcon = (p: IconProps) => (
     <line x1="17" y1="9" x2="23" y2="15" />
   </Icon>
 )
+
+export const PlayIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <polygon points="6 4 20 12 6 20 6 4" />
+  </Icon>
+)
+
+export const PauseIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="6" y="5" width="4" height="14" rx="1" />
+    <rect x="14" y="5" width="4" height="14" rx="1" />
+  </Icon>
+)
+
+export const StepForwardIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <polygon points="5 4 15 12 5 20 5 4" />
+    <line x1="19" y1="5" x2="19" y2="19" />
+  </Icon>
+)
+
+export const UsersIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+    <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </Icon>
+)
+
+export const MegaphoneIcon = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M3 11v2a1 1 0 0 0 1 1h2l4 4V6L6 10H4a1 1 0 0 0-1 1z" />
+    <path d="M14 7a5 5 0 0 1 0 10" />
+    <line x1="10" y1="14" x2="11" y2="20" />
+  </Icon>
+)

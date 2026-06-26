@@ -1,7 +1,13 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { promises as fs } from 'node:fs'
 import type { IpcMainInvokeEvent } from 'electron'
-import { IPC, type AppInfo, type ChatSendRequest, type TtsSpeakRequest } from '@shared/ipc'
+import {
+  IPC,
+  type AppInfo,
+  type ChatSendRequest,
+  type ChatAdvanceRequest,
+  type TtsSpeakRequest
+} from '@shared/ipc'
 import { buildExport, exportFileBaseName, type ExportFormat } from '@shared/export'
 import type {
   AppSettings,
@@ -121,6 +127,12 @@ export function registerIpc(): void {
     if (!conversation) throw new Error(`Conversation not found: ${req.conversationId}`)
     // Fire generation; streaming events flow over IPC.chatEvent.
     void engine.generate(conversation, req.message, req.assistantMessageId, req.options)
+  })
+  handle(IPC.chatAdvance, async (_e, req: ChatAdvanceRequest) => {
+    const conversation = await getConversation(req.conversationId)
+    if (!conversation) throw new Error(`Conversation not found: ${req.conversationId}`)
+    // Generate one scene beat; streaming events flow over the same IPC.chatEvent.
+    void engine.generateBeat(conversation, req.speakerId, req.assistantMessageId, req.options)
   })
   handle(IPC.chatAbort, async () => {
     engine.abortGeneration()

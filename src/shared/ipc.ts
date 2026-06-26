@@ -45,6 +45,7 @@ export const IPC = {
 
   // Chat
   chatSend: 'chat:send',
+  chatAdvance: 'chat:advance', // generate one beat of a self-roleplay scene
   chatAbort: 'chat:abort',
   chatEvent: 'chat:event', // main → renderer streaming event
   chatCompact: 'chat:compact', // summarize older turns to reclaim context
@@ -92,6 +93,15 @@ export interface ChatSendRequest {
   conversationId: string
   /** The user message text to send. */
   message: string
+  /** Assistant message id the renderer pre-allocated for streaming into. */
+  assistantMessageId: string
+  options?: Partial<GenerationOptions>
+}
+
+export interface ChatAdvanceRequest {
+  conversationId: string
+  /** Persona id (from the cast) of the character who should speak this beat. */
+  speakerId: string
   /** Assistant message id the renderer pre-allocated for streaming into. */
   assistantMessageId: string
   options?: Partial<GenerationOptions>
@@ -152,6 +162,8 @@ export interface SibylBridge {
   }
   chat: {
     send(req: ChatSendRequest): Promise<Result<void>>
+    /** Generate the next beat of a self-roleplay scene (one cast persona speaks). */
+    advance(req: ChatAdvanceRequest): Promise<Result<void>>
     abort(conversationId: string): Promise<Result<void>>
     /** Summarize older turns of a conversation into a compaction record. */
     compact(conversationId: string): Promise<Result<CompactionInfo>>
