@@ -901,8 +901,16 @@ export const actions = {
     ) {
       const did = await actions.compact(conversationId, { silent: true })
       if (did) {
-        toast('Context was full — older messages were summarized', 'info')
         conv = state.conversations.find((c) => c.id === conversationId) ?? conv
+        // Fit check: compact() refreshed usage. If the recent tail still won't
+        // fit, summarizing couldn't free enough — warn rather than silently
+        // truncate the reply.
+        const u = state.contextUsage
+        if (u?.conversationId === conversationId && u.willOverflow) {
+          toast('Summarized, but recent messages still fill the window — the reply may be truncated.', 'error')
+        } else {
+          toast('Context was full — older messages were summarized', 'info')
+        }
       }
     }
 

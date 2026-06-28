@@ -13,7 +13,7 @@ import type {
   Persona
 } from '@shared/types'
 import { DEFAULT_GENERATION_OPTIONS } from '@shared/types'
-import { contextLevel } from '@shared/context'
+import { contextLevel, keepRecentCount, summaryBudgetTokens } from '@shared/context'
 import { findPersona } from '@shared/personas'
 import { buildBeatPrompt, isScene, nextSpeakerId, sceneCast, type SceneTurn } from '@shared/scene'
 import { getLlamaInstance } from './llama'
@@ -745,11 +745,24 @@ class InferenceEngine extends EventEmitter {
     this.beginExclusive()
     try {
       const settings = await getSettings()
-      const keep = Math.max(0, settings.context.keepRecentMessages)
+      const maxKeep = Math.max(0, settings.context.keepRecentMessages)
 
       const live = this.liveMessages(conversation).filter(
         (m) => m.role !== 'system' && m.content.trim()
       )
+      // Token-budget the kept-recent tail: when the recent messages are large,
+      // keep fewer than `maxKeep` so compaction actually frees space (a fixed
+      // count can leave the window full). Falls back to the count when the
+      // context size isn't known yet.
+      const contextSize = this.contextSize ?? 0
+      const keep =
+        contextSize > 0
+          ? keepRecentCount(
+              [...live].reverse().map((m) => this.tokenCount(m.content) + 4),
+              maxKeep,
+              Math.round(contextSize * settings.context.keepRecentFraction)
+            )
+          : maxKeep
       const foldCount = live.length - keep
       if (foldCount <= 0) {
         throw new Error('Not enough conversation history to compact yet.')
@@ -790,7 +803,9 @@ class InferenceEngine extends EventEmitter {
           signal: this.abort.signal,
           stopOnAbortSignal: true,
           temperature: 0.3,
-          maxTokens: 600
+          // Scale the summary budget to the window so a large context isn't
+          // stuck with a tiny (fixed-600) summary that loses detail every pass.
+          maxTokens: summaryBudgetTokens(contextSize, settings.context.summaryTokenFraction)
         })
         if (this.abort.signal.aborted) throw new Error('Compaction cancelled.')
         summary = out.trim()

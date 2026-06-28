@@ -39,6 +39,46 @@ export function contextPercent(fraction: number): number {
   return Math.min(100, Math.round(fraction * 100))
 }
 
+/**
+ * Token budget for a folded-history summary, scaled to the window so a large
+ * context doesn't get stuck with a tiny summary (the old behaviour was a fixed
+ * 600). `fraction` of `contextSize`, clamped to a sane floor/ceiling. Falls back
+ * to 600 when the context size is unknown.
+ */
+export function summaryBudgetTokens(contextSize: number, fraction: number): number {
+  if (!Number.isFinite(contextSize) || contextSize <= 0) return 600
+  const f = Number.isFinite(fraction) && fraction > 0 ? fraction : 0.06
+  return Math.min(2000, Math.max(256, Math.round(contextSize * f)))
+}
+
+/**
+ * How many of the most recent messages to keep verbatim during compaction.
+ * Keeps up to `maxKeep` (the user's keepRecentMessages), but folds more when the
+ * recent tail is large so the post-compaction live tail fits `keepBudgetTokens` —
+ * a fixed count alone can't guarantee compaction frees enough. Always keeps at
+ * least `minKeep` (even if they exceed the budget, so there's some live context;
+ * the caller's fit check then warns). `recentTokens` is newest-first.
+ */
+export function keepRecentCount(
+  recentTokens: number[],
+  maxKeep: number,
+  keepBudgetTokens: number,
+  minKeep = 2
+): number {
+  const cap = Math.max(0, Math.floor(maxKeep))
+  const floor = Math.min(Math.max(0, Math.floor(minKeep)), cap)
+  let total = 0
+  let keep = 0
+  for (const t of recentTokens) {
+    if (keep >= cap) break
+    const next = total + (t > 0 ? t : 0)
+    if (keep >= floor && next > keepBudgetTokens) break
+    total = next
+    keep++
+  }
+  return keep
+}
+
 /** Tailwind text/bg accent class per severity, for consistent meter colours. */
 export function levelColor(level: ContextLevel): { text: string; bar: string } {
   switch (level) {

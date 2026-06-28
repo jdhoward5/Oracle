@@ -297,15 +297,26 @@ export interface ContextSettings {
   compactThreshold: number
   /** Fraction (0..1) at which the UI surfaces a warning. */
   warnThreshold: number
-  /** Number of most-recent messages always kept verbatim (never folded). */
+  /** Upper bound on most-recent messages kept verbatim (never folded). */
   keepRecentMessages: number
+  /**
+   * Token budget for the kept-recent tail, as a fraction of the window. When the
+   * recent messages are large, compaction folds more than usual (down to a floor)
+   * so the live tail fits this budget — a fixed message count can't guarantee
+   * compaction frees enough.
+   */
+  keepRecentFraction: number
+  /** Summary token budget as a fraction of the window (scales with context size). */
+  summaryTokenFraction: number
 }
 
 export const DEFAULT_CONTEXT_SETTINGS: ContextSettings = {
   autoCompact: true,
   compactThreshold: 0.85,
   warnThreshold: 0.7,
-  keepRecentMessages: 6
+  keepRecentMessages: 6,
+  keepRecentFraction: 0.35,
+  summaryTokenFraction: 0.06
 }
 
 export interface AppSettings {
