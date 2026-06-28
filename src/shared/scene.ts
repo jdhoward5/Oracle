@@ -105,9 +105,12 @@ function buildSystem(
   const who = speaker.role?.trim() ? `${speaker.name}, ${speaker.role.trim()}` : speaker.name
   lines.push(
     `You are playing ${who}, one character in a shared, ongoing scene. Write only ` +
-      `${speaker.name}'s next beat — their dialogue, actions and inner thoughts — then stop. ` +
-      `Never speak, act, or narrate for the other characters or for the human. Do not prefix ` +
-      `your reply with your name. Stay fully in character and never mention being an AI.`
+      `${speaker.name}'s next beat — what ${speaker.name} says, does, and thinks — then stop. ` +
+      `The other characters and the human each take their own turns: never write their ` +
+      `dialogue, put words in their mouth, or describe their actions and reactions — not ` +
+      `even inside your narration. End your beat at ${speaker.name}'s own words and actions; ` +
+      `do not continue into how anyone else responds. Do not prefix your reply with your ` +
+      `name or any name label. Stay fully in character and never mention being an AI.`
   )
 
   lines.push('', 'Characters in the scene:')
@@ -197,7 +200,9 @@ export function buildBeatPrompt(params: {
   const stopTriggers: string[] = []
   for (const n of names) {
     const t = n.trim()
-    if (t) stopTriggers.push(`\n${t}:`)
+    // The plain script cue plus the markdown-bold forms instruct-tuned models
+    // often emit when they start speaking as the next character.
+    if (t) stopTriggers.push(`\n${t}:`, `\n**${t}:`, `\n**${t}**:`)
   }
 
   return {
@@ -219,4 +224,25 @@ export function stripSpeakerPrefix(text: string, speakerName: string | undefined
   // Escape regex metacharacters so names like "Bo (pilot)" don't break the match.
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
   return text.replace(new RegExp(`^\\s*${escaped}\\s*:\\s*`, 'i'), '')
+}
+
+/**
+ * Trim a finished beat at the first line where the model starts speaking AS
+ * another character — a `Name:` script cue at the start of a line. Tolerates the
+ * markdown-bold (`**Bo**:`), blockquote (`> Bo:`) and parenthetical (`Bo (sadly):`)
+ * forms models emit, matching case-insensitively. This backstops the
+ * generation-time stop triggers, which only catch a few exact strings and never
+ * fire on the very first line. `names` are the other cast members plus the human;
+ * returns the text unchanged when no foreign cue is found.
+ */
+export function truncateAtForeignSpeaker(text: string, names: string[]): string {
+  const cues = names.map((n) => n.trim()).filter(Boolean)
+  if (!cues.length) return text
+  const alt = cues.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')
+  // Line start, optional bold/blockquote prefix, the name, an optional
+  // parenthetical aside, then a colon (ASCII or full-width).
+  const re = new RegExp(`^[ \\t>*]*(?:${alt})[ *]*(?:\\([^)]*\\))?[ *]*[:：]`, 'im')
+  const m = re.exec(text)
+  if (!m) return text
+  return text.slice(0, m.index).trimEnd()
 }

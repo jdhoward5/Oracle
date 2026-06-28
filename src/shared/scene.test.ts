@@ -5,6 +5,7 @@ import {
   nextSpeakerId,
   buildBeatPrompt,
   stripSpeakerPrefix,
+  truncateAtForeignSpeaker,
   userDisplayName
 } from './scene'
 import type { ChatMessage, Conversation, Persona } from './types'
@@ -175,6 +176,57 @@ describe('buildBeatPrompt', () => {
     expect(r.stopTriggers).toContain('\nBo:')
     expect(r.stopTriggers).toContain('\nRae:')
     expect(r.stopTriggers).not.toContain('\nAda:')
+  })
+
+  it('also emits markdown-bold stop-trigger variants', () => {
+    const r = buildBeatPrompt({ messages: [], speaker: A, cast })
+    expect(r.stopTriggers).toContain('\n**Bo:')
+    expect(r.stopTriggers).toContain('\n**Bo**:')
+    expect(r.stopTriggers).not.toContain('\n**Ada**:')
+  })
+})
+
+describe('truncateAtForeignSpeaker', () => {
+  const names = ['Bo', 'Cy', 'Rae']
+
+  it('cuts at the first foreign "Name:" cue', () => {
+    expect(truncateAtForeignSpeaker('Ada paces the deck.\nBo: Sit down.', names)).toBe(
+      'Ada paces the deck.'
+    )
+  })
+
+  it('tolerates bold, blockquote and parenthetical forms', () => {
+    expect(truncateAtForeignSpeaker('Holds steady.\n**Bo**: Easy.', names)).toBe('Holds steady.')
+    expect(truncateAtForeignSpeaker('Holds steady.\nBo (sharply): Easy.', names)).toBe('Holds steady.')
+    expect(truncateAtForeignSpeaker('Holds steady.\n> Cy: Watch out.', names)).toBe('Holds steady.')
+  })
+
+  it('matches case-insensitively', () => {
+    expect(truncateAtForeignSpeaker('Done.\nbo: hi', names)).toBe('Done.')
+  })
+
+  it('leaves a clean beat untouched', () => {
+    expect(truncateAtForeignSpeaker('Ada speaks only for herself.', names)).toBe(
+      'Ada speaks only for herself.'
+    )
+    // A name + colon mid-sentence is not a line-start speaker cue.
+    expect(truncateAtForeignSpeaker('She turned to Bo: a long pause.', names)).toBe(
+      'She turned to Bo: a long pause.'
+    )
+    // A longer name starting with a cue must not match (Bo ≠ Bonnie).
+    expect(truncateAtForeignSpeaker('Bonnie waved.', names)).toBe('Bonnie waved.')
+  })
+
+  it('handles names with regex metacharacters', () => {
+    expect(truncateAtForeignSpeaker('Hi.\nBo (pilot): yo', ['Bo (pilot)'])).toBe('Hi.')
+  })
+
+  it('returns the text unchanged when there are no names', () => {
+    expect(truncateAtForeignSpeaker('Bo: anything', [])).toBe('Bo: anything')
+  })
+
+  it('returns empty when the whole beat is a foreign line', () => {
+    expect(truncateAtForeignSpeaker('Bo: this is wrong', names)).toBe('')
   })
 })
 

@@ -19,7 +19,15 @@ import type { ExportFormat } from '@shared/export'
 import type { InstalledVoice, TtsSettings, TtsStatus, TtsVoiceDownload } from '@shared/tts'
 import { getAccentTheme, hexToRgbChannels } from '@shared/themes'
 import { findPersona } from '@shared/personas'
-import { isScene, sceneCast, nextSpeakerId, stripSpeakerPrefix, MIN_SCENE_CAST } from '@shared/scene'
+import {
+  isScene,
+  sceneCast,
+  nextSpeakerId,
+  stripSpeakerPrefix,
+  truncateAtForeignSpeaker,
+  userDisplayName,
+  MIN_SCENE_CAST
+} from '@shared/scene'
 import { ttsPlayer } from './lib/ttsPlayer'
 
 /** Paint the selected accent theme onto documentElement as CSS variables. */
@@ -425,7 +433,16 @@ export const actions = {
             if (m.id !== e.messageId) return m
             // Scene beats: drop a leading "Name:" the model sometimes prepends
             // despite instruction (the UI already attributes the speaker).
-            const content = m.speakerId ? stripSpeakerPrefix(m.content, m.speakerName) : m.content
+            let content = m.speakerId ? stripSpeakerPrefix(m.content, m.speakerName) : m.content
+            // Backstop the stop triggers: if the beat ran on into another
+            // character's line, cut it at that foreign "Name:" cue.
+            if (m.speakerId && isScene(c)) {
+              const foreign = sceneCast(c, state.settings?.personas)
+                .filter((p) => p.id !== m.speakerId)
+                .map((p) => p.name)
+              foreign.push(userDisplayName(c.userCharacter))
+              content = truncateAtForeignSpeaker(content, foreign)
+            }
             finishedText = content
             return { ...m, content, stats: e.stats, error: undefined }
           })
